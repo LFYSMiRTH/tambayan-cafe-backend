@@ -46,14 +46,13 @@ builder.Services.ConfigureHttpJsonOptions(options =>
         System.Text.Json.JsonNamingPolicy.CamelCase;
 });
 
-// CORS — allow your Vercel frontend in production; for now, allow all during dev
+// CORS — allow your Vercel frontend
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        // Replace with your actual Vercel URL in production
         var frontendUrl = Environment.GetEnvironmentVariable("FRONTEND_URL")
-                          ?? "https://my-frontend-app-eight.vercel.app";
+                          ?? "https://my-frontend-app-eight.vercel.app"; // ← NO TRAILING SPACES!
 
         if (string.Equals(frontendUrl, "*", StringComparison.OrdinalIgnoreCase))
         {
@@ -81,7 +80,10 @@ app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
 app.MapControllers();
 
-// Listen on the port provided by Render (or default to 8080 locally)
+// 👇 Health check endpoint for Render
+app.MapGet("/", () => "Tambayan Café API is live!");
+
+// Listen on the port provided by Render
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
 var url = $"http://0.0.0.0:{port}";
 
