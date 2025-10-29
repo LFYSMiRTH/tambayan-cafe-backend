@@ -38,22 +38,31 @@ builder.Services.ConfigureHttpJsonOptions(options =>
         System.Text.Json.JsonNamingPolicy.CamelCase;
 });
 
-var frontendOrigins = new[]
-{
-    "https://my-frontend-app-eight.vercel.app", 
-    "http://127.0.0.1:5500",                   
-    "http://localhost:5500",
-    "http://localhost:3000",                   
-    "http://127.0.0.1:3000"
-};
-
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins(frontendOrigins)
-              .AllowAnyHeader()
-              .AllowAnyMethod();
+        policy.SetIsOriginAllowed(origin =>
+        {
+            if (string.Equals(origin, "https://my-frontend-app-eight.vercel.app",
+                StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (origin.StartsWith("https://my-frontend-app-", StringComparison.OrdinalIgnoreCase) &&
+                origin.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            var localOrigins = new[]
+            {
+                "http://127.0.0.1:5500",
+                "http://localhost:5500",
+                "http://localhost:3000",
+                "http://127.0.0.1:3000"
+            };
+            return localOrigins.Contains(origin);
+        })
+        .AllowAnyHeader()
+        .AllowAnyMethod();
     });
 });
 
