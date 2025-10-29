@@ -1,5 +1,4 @@
-﻿// Enforce TLS 1.2+ for MongoDB Atlas compatibility
-using MongoDB.Bson;
+﻿using MongoDB.Bson;
 using MongoDB.Driver;
 using TambayanCafeSystem.Services;
 
@@ -8,12 +7,10 @@ System.Net.ServicePointManager.SecurityProtocol =
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// MongoDB configuration
 var connectionString = builder.Configuration["MongoDB:ConnectionString"]
                        ?? Environment.GetEnvironmentVariable("MONGODB_CONNECTION_STRING");
 var databaseName = builder.Configuration["MongoDB:DatabaseName"]
@@ -31,27 +28,30 @@ builder.Services.AddSingleton<IMongoDatabase>(sp =>
     return client.GetDatabase(databaseName);
 });
 
-// Services
 builder.Services.AddSingleton<ProductService>();
 builder.Services.AddSingleton<OrderService>();
 builder.Services.AddSingleton<UserService>();
 
-// JSON camelCase
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.PropertyNamingPolicy =
         System.Text.Json.JsonNamingPolicy.CamelCase;
 });
 
-// CORS: Allow only your Vercel frontend
-var frontendUrl = (Environment.GetEnvironmentVariable("FRONTEND_URL")
-                   ?? "https://my-frontend-app-eight.vercel.app").Trim();
+var frontendOrigins = new[]
+{
+    "https://my-frontend-app-eight.vercel.app", 
+    "http://127.0.0.1:5500",                   
+    "http://localhost:5500",
+    "http://localhost:3000",                   
+    "http://127.0.0.1:3000"
+};
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins(frontendUrl)
+        policy.WithOrigins(frontendOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -59,20 +59,18 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Development tools
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-// Middleware order matters!
-app.UseCors("AllowFrontend");
+app.UseCors("AllowFrontend");        
 app.UseHttpsRedirection();
 app.MapControllers();
 
-// Health check endpoint (for debugging)
 app.MapGet("/health", () => "Tambayan Café API is live!");
+
 app.MapGet("/health/db", async (IMongoDatabase database) =>
 {
     try
@@ -86,6 +84,5 @@ app.MapGet("/health/db", async (IMongoDatabase database) =>
     }
 });
 
-// Run on Render's PORT
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
 app.Run($"http://0.0.0.0:{port}");
