@@ -8,7 +8,6 @@ namespace TambayanCafeSystem.Services
     {
         private readonly IMongoCollection<Product> _products;
 
-        // Inject IMongoDatabase (configured in Program.cs)
         public ProductService(IMongoDatabase database)
         {
             _products = database.GetCollection<Product>("products");
@@ -20,23 +19,29 @@ namespace TambayanCafeSystem.Services
 
         public void Update(string id, Product product)
         {
-            var filter = Builders<Product>.Filter.Eq("_id", ObjectId.Parse(id));
+            if (!ObjectId.TryParse(id, out var objectId))
+                throw new ArgumentException("Invalid product ID format.", nameof(id));
+
+            var filter = Builders<Product>.Filter.Eq("_id", objectId);
             var update = Builders<Product>.Update
                 .Set("name", product.Name)
                 .Set("price", product.Price)
                 .Set("stockQuantity", product.StockQuantity)
-                .Set("category", product.Category)
-                .Set("lowStockThreshold", product.LowStockThreshold);
+                .Set("category", product.Category ?? ""); // prevent null
+
             _products.UpdateOne(filter, update);
         }
 
         public void Delete(string id)
         {
-            var filter = Builders<Product>.Filter.Eq("_id", ObjectId.Parse(id));
+            if (!ObjectId.TryParse(id, out var objectId))
+                throw new ArgumentException("Invalid product ID format.", nameof(id));
+
+            var filter = Builders<Product>.Filter.Eq("_id", objectId);
             _products.DeleteOne(filter);
         }
 
         public long GetLowStockCount() =>
-            _products.CountDocuments(p => p.StockQuantity <= p.LowStockThreshold);
+            _products.CountDocuments(p => p.StockQuantity <= (p.LowStockThreshold > 0 ? p.LowStockThreshold : 5));
     }
 }
