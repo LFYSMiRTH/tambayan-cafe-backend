@@ -105,7 +105,7 @@ namespace TambayanCafeSystem.Controllers
                 try
                 {
                     var client = new SendGrid.SendGridClient(apiKey);
-                    var from = new SendGrid.Helpers.Mail.EmailAddress("no-reply@tbyncafe.com", "TBYN Café");
+                    var from = new SendGrid.Helpers.Mail.EmailAddress("johntimothyyanto@gmail.com", "TBYN Café");
                     var to = new SendGrid.Helpers.Mail.EmailAddress(email);
                     var subject = "Your Password Reset Code";
                     var plainTextContent = $"Your TBYN Café password reset code is: {resetCode}\n\nThis code expires in 10 minutes.";
@@ -120,7 +120,6 @@ namespace TambayanCafeSystem.Controllers
             }
             else
             {
-                // Fallback: log to console (visible in Render logs)
                 Console.WriteLine($"[DEBUG] Reset code for {email}: {resetCode}");
             }
 
