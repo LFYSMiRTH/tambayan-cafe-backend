@@ -75,9 +75,8 @@ namespace TambayanCafeSystem.Controllers
             return Ok(safeUser);
         }
 
-        // ✅ FIXED: Use JsonElement for safe parsing
         [HttpPost("forgot-password")]
-        public IActionResult ForgotPassword([FromBody] JsonElement request)
+        public async Task<IActionResult> ForgotPassword([FromBody] JsonElement request)
         {
             if (!request.TryGetProperty("email", out JsonElement emailElement) ||
                 string.IsNullOrWhiteSpace(emailElement.GetString()))
@@ -100,7 +99,31 @@ namespace TambayanCafeSystem.Controllers
             string resetCode = Guid.NewGuid().ToString("N").Substring(0, 6).ToUpper();
             _userService.SaveResetCode(email, resetCode);
 
-            Console.WriteLine($"[DEBUG] Reset code for {email}: {resetCode}");
+            var apiKey = Environment.GetEnvironmentVariable("SENDGRID_API_KEY");
+            if (!string.IsNullOrEmpty(apiKey))
+            {
+                try
+                {
+                    var client = new SendGrid.SendGridClient(apiKey);
+                    var from = new SendGrid.Helpers.Mail.EmailAddress("no-reply@tbyncafe.com", "TBYN Café");
+                    var to = new SendGrid.Helpers.Mail.EmailAddress(email);
+                    var subject = "Your Password Reset Code";
+                    var plainTextContent = $"Your TBYN Café password reset code is: {resetCode}\n\nThis code expires in 10 minutes.";
+                    var htmlContent = $"<p>Your TBYN Café password reset code is:</p><h2>{resetCode}</h2><p>This code expires in 10 minutes.</p>";
+                    var msg = SendGrid.Helpers.Mail.MailHelper.CreateSingleEmail(from, to, subject, plainTextContent, htmlContent);
+                    await client.SendEmailAsync(msg);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[ERROR] Failed to send email: {ex.Message}");
+                }
+            }
+            else
+            {
+                // Fallback: log to console (visible in Render logs)
+                Console.WriteLine($"[DEBUG] Reset code for {email}: {resetCode}");
+            }
+
             return Ok(new { message = "If your email is registered, a reset code was sent." });
         }
 
