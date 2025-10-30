@@ -3,6 +3,7 @@ using TambayanCafeSystem.Models;
 using TambayanCafeSystem.Services;
 using System;
 using System.Linq;
+using System.Text.Json;
 
 namespace TambayanCafeSystem.Controllers
 {
@@ -74,13 +75,20 @@ namespace TambayanCafeSystem.Controllers
             return Ok(safeUser);
         }
 
+        // ✅ FIXED: Use JsonElement for safe parsing
         [HttpPost("forgot-password")]
-        public IActionResult ForgotPassword([FromBody] dynamic request)
+        public IActionResult ForgotPassword([FromBody] JsonElement request)
         {
-            string email = request?.email;
-            if (string.IsNullOrEmpty(email))
+            if (!request.TryGetProperty("email", out JsonElement emailElement) ||
+                string.IsNullOrWhiteSpace(emailElement.GetString()))
             {
                 return BadRequest(new { error = "MissingEmail", message = "Email is required." });
+            }
+
+            string email = emailElement.GetString().Trim();
+            if (!IsValidEmail(email))
+            {
+                return BadRequest(new { error = "InvalidEmail", message = "Please provide a valid email address." });
             }
 
             var user = _userService.GetByEmail(email);
@@ -89,24 +97,26 @@ namespace TambayanCafeSystem.Controllers
                 return Ok(new { message = "If your email is registered, a reset code was sent." });
             }
 
-            string resetCode = Guid.NewGuid().ToString().Substring(0, 6).ToUpper();
+            string resetCode = Guid.NewGuid().ToString("N").Substring(0, 6).ToUpper();
             _userService.SaveResetCode(email, resetCode);
 
-            Console.WriteLine($"[DEBUG] Password reset code for {email}: {resetCode}");
-
+            Console.WriteLine($"[DEBUG] Reset code for {email}: {resetCode}");
             return Ok(new { message = "If your email is registered, a reset code was sent." });
         }
 
         [HttpPost("verify-reset-code")]
-        public IActionResult VerifyResetCode([FromBody] dynamic request)
+        public IActionResult VerifyResetCode([FromBody] JsonElement request)
         {
-            string email = request?.email;
-            string code = request?.code;
-
-            if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(code))
+            if (!request.TryGetProperty("email", out JsonElement emailEl) ||
+                !request.TryGetProperty("code", out JsonElement codeEl) ||
+                string.IsNullOrWhiteSpace(emailEl.GetString()) ||
+                string.IsNullOrWhiteSpace(codeEl.GetString()))
             {
                 return BadRequest(new { error = "MissingFields", message = "Email and code are required." });
             }
+
+            string email = emailEl.GetString().Trim();
+            string code = codeEl.GetString().Trim();
 
             if (_userService.VerifyResetCode(email, code))
             {
@@ -117,16 +127,21 @@ namespace TambayanCafeSystem.Controllers
         }
 
         [HttpPost("reset-password")]
-        public IActionResult ResetPassword([FromBody] dynamic request)
+        public IActionResult ResetPassword([FromBody] JsonElement request)
         {
-            string email = request?.email;
-            string code = request?.code;
-            string newPassword = request?.newPassword;
-
-            if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(code) || string.IsNullOrEmpty(newPassword))
+            if (!request.TryGetProperty("email", out JsonElement emailEl) ||
+                !request.TryGetProperty("code", out JsonElement codeEl) ||
+                !request.TryGetProperty("newPassword", out JsonElement passEl) ||
+                string.IsNullOrWhiteSpace(emailEl.GetString()) ||
+                string.IsNullOrWhiteSpace(codeEl.GetString()) ||
+                string.IsNullOrWhiteSpace(passEl.GetString()))
             {
                 return BadRequest(new { error = "MissingFields", message = "Email, code, and new password are required." });
             }
+
+            string email = emailEl.GetString().Trim();
+            string code = codeEl.GetString().Trim();
+            string newPassword = passEl.GetString();
 
             if (!IsStrongPassword(newPassword))
             {
@@ -162,6 +177,19 @@ namespace TambayanCafeSystem.Controllers
             bool hasSpecial = password.Any(ch => !char.IsLetterOrDigit(ch));
 
             return hasUpper && hasLower && hasDigit && hasSpecial;
+        }
+
+        private bool IsValidEmail(string email)
+        {
+            try
+            {
+                var addr = new System.Net.Mail.MailAddress(email);
+                return addr.Address == email;
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }
