@@ -78,52 +78,72 @@ namespace TambayanCafeSystem.Controllers
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] JsonElement request)
         {
-            if (!request.TryGetProperty("email", out JsonElement emailElement) ||
-                string.IsNullOrWhiteSpace(emailElement.GetString()))
+            try
             {
-                return BadRequest(new { error = "MissingEmail", message = "Email is required." });
-            }
+                if (!request.TryGetProperty("email", out JsonElement emailElement) ||
+                    string.IsNullOrWhiteSpace(emailElement.GetString()))
+                {
+                    return BadRequest(new { error = "MissingEmail", message = "Email is required." });
+                }
 
-            string email = emailElement.GetString().Trim();
-            if (!IsValidEmail(email))
-            {
-                return BadRequest(new { error = "InvalidEmail", message = "Please provide a valid email address." });
-            }
+                string email = emailElement.GetString().Trim();
+                if (!IsValidEmail(email))
+                {
+                    return BadRequest(new { error = "InvalidEmail", message = "Please provide a valid email address." });
+                }
 
-            var user = _userService.GetByEmail(email);
-            if (user == null)
-            {
+                var user = _userService.GetByEmail(email);
+                if (user == null)
+                {
+                    return Ok(new { message = "If your email is registered, a reset code was sent." });
+                }
+
+                string resetCode = Guid.NewGuid().ToString("N").Substring(0, 6).ToUpper();
+                _userService.SaveResetCode(email, resetCode);
+
+                Console.WriteLine($"[SENDGRID] Attempting to send email to: {email}");
+                Console.WriteLine($"[SENDGRID] Using API Key: {(string.IsNullOrEmpty(Environment.GetEnvironmentVariable("SENDGRID_API_KEY")) ? "MISSING" : "PRESENT")}");
+
+                var apiKey = Environment.GetEnvironmentVariable("SENDGRID_API_KEY");
+                if (!string.IsNullOrEmpty(apiKey))
+                {
+                    try
+                    {
+                        var client = new SendGrid.SendGridClient(apiKey);
+                        var from = new SendGrid.Helpers.Mail.EmailAddress("johntimothyyanto@gmail.com", "TBYN Café");
+                        var to = new SendGrid.Helpers.Mail.EmailAddress(email);
+                        var subject = "Your Password Reset Code";
+                        var plainTextContent = $"Your TBYN Café password reset code is: {resetCode}\n\nThis code expires in 10 minutes.";
+                        var htmlContent = $"<p>Your TBYN Café password reset code is:</p><h2>{resetCode}</h2><p>This code expires in 10 minutes.</p>";
+                        var msg = SendGrid.Helpers.Mail.MailHelper.CreateSingleEmail(from, to, subject, plainTextContent, htmlContent);
+
+                        Console.WriteLine($"[SENDGRID] From: {from.Email} | To: {to.Email} | Subject: {subject}");
+
+                        var response = await client.SendEmailAsync(msg);
+
+                        Console.WriteLine($"[SENDGRID] SendGrid Response Status: {response.StatusCode}");
+                        Console.WriteLine($"[SENDGRID] SendGrid Response Body: {await response.Body.ReadAsStringAsync()}");
+
+                        Console.WriteLine("[SENDGRID] Email sent successfully!");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[SENDGRID ERROR] {ex.GetType().Name}: {ex.Message}");
+                        Console.WriteLine($"[SENDGRID ERROR] StackTrace: {ex.StackTrace}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("[SENDGRID] SKIPPED: API key not found");
+                }
+
                 return Ok(new { message = "If your email is registered, a reset code was sent." });
             }
-
-            string resetCode = Guid.NewGuid().ToString("N").Substring(0, 6).ToUpper();
-            _userService.SaveResetCode(email, resetCode);
-
-            var apiKey = Environment.GetEnvironmentVariable("SENDGRID_API_KEY");
-            if (!string.IsNullOrEmpty(apiKey))
+            catch (Exception ex)
             {
-                try
-                {
-                    var client = new SendGrid.SendGridClient(apiKey);
-                    var from = new SendGrid.Helpers.Mail.EmailAddress("johntimothyyanto@gmail.com", "TBYN Café");
-                    var to = new SendGrid.Helpers.Mail.EmailAddress(email);
-                    var subject = "Your Password Reset Code";
-                    var plainTextContent = $"Your TBYN Café password reset code is: {resetCode}\n\nThis code expires in 10 minutes.";
-                    var htmlContent = $"<p>Your TBYN Café password reset code is:</p><h2>{resetCode}</h2><p>This code expires in 10 minutes.</p>";
-                    var msg = SendGrid.Helpers.Mail.MailHelper.CreateSingleEmail(from, to, subject, plainTextContent, htmlContent);
-                    await client.SendEmailAsync(msg);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[ERROR] Failed to send email: {ex.Message}");
-                }
+                Console.WriteLine($"[CRITICAL] ForgotPassword failed: {ex}");
+                return StatusCode(500, new { error = "Service temporarily unavailable" });
             }
-            else
-            {
-                Console.WriteLine($"[DEBUG] Reset code for {email}: {resetCode}");
-            }
-
-            return Ok(new { message = "If your email is registered, a reset code was sent." });
         }
 
         [HttpPost("verify-reset-code")]
