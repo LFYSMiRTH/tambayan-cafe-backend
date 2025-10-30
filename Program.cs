@@ -44,12 +44,14 @@ builder.Services.AddCors(options =>
     {
         policy.SetIsOriginAllowed(origin =>
         {
-            if (string.Equals(origin, "https://my-frontend-app-eight.vercel.app",
-                StringComparison.OrdinalIgnoreCase))
+            var cleanOrigin = origin?.Trim();
+
+            if (string.Equals(cleanOrigin, "https://my-frontend-app-eight.vercel.app", StringComparison.OrdinalIgnoreCase))
                 return true;
 
-            if (origin.StartsWith("https://my-frontend-app-", StringComparison.OrdinalIgnoreCase) &&
-                origin.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrEmpty(cleanOrigin) &&
+                cleanOrigin.StartsWith("https://my-frontend-app-", StringComparison.OrdinalIgnoreCase) &&
+                cleanOrigin.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase))
                 return true;
 
             var localOrigins = new[]
@@ -59,7 +61,7 @@ builder.Services.AddCors(options =>
                 "http://localhost:3000",
                 "http://127.0.0.1:3000"
             };
-            return localOrigins.Contains(origin);
+            return localOrigins.Contains(cleanOrigin);
         })
         .AllowAnyHeader()
         .AllowAnyMethod();
@@ -74,8 +76,27 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseCors("AllowFrontend");        
+app.UseCors("AllowFrontend");
 app.UseHttpsRedirection();
+
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[ERROR] {ex}");
+
+        context.Response.StatusCode = 500;
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsync(
+            System.Text.Json.JsonSerializer.Serialize(new { error = "Internal server error" })
+        );
+    }
+});
+
 app.MapControllers();
 
 app.MapGet("/health", () => "Tambayan Café API is live!");
