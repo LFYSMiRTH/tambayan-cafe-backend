@@ -2,6 +2,7 @@
 using TambayanCafeSystem.Models;
 using TambayanCafeSystem.Services;
 using System;
+using System.Linq;
 
 namespace TambayanCafeSystem.Controllers
 {
@@ -23,87 +24,144 @@ namespace TambayanCafeSystem.Controllers
         public IActionResult CheckUsername([FromQuery] string username)
         {
             var user = _userService.GetByUsername(username);
-            if (user != null)
-                return Conflict("Username already exists");
-            return Ok("Username is available");
+            return Ok(new { exists = user != null });
         }
 
         [HttpGet("check-email")]
         public IActionResult CheckEmail([FromQuery] string email)
         {
             var user = _userService.GetByEmail(email);
-            if (user != null)
-                return Conflict("Email already exists");
-            return Ok("Email is available");
+            return Ok(new { exists = user != null });
         }
 
         [HttpPost("register")]
-        public ActionResult<User> Register([FromBody] User user)
+        public IActionResult Register([FromBody] User user)
         {
-            if (string.IsNullOrEmpty(user.Password) || user.Password.Length < 8)
-                return BadRequest("Password must be at least 8 characters long");
+            if (!IsStrongPassword(user?.Password))
+            {
+                return BadRequest(new
+                {
+                    error = "WeakPassword",
+                    message = "Password must be at least 8 characters and include uppercase, lowercase, number, and symbol."
+                });
+            }
 
             if (_userService.GetByUsername(user.Username) != null)
-                return Conflict("Username already exists");
+            {
+                return Conflict(new { error = "UsernameExists", message = "Username already taken." });
+            }
 
             if (_userService.GetByEmail(user.Email) != null)
-                return Conflict("Email already exists");
+            {
+                return Conflict(new { error = "EmailExists", message = "Email already registered." });
+            }
 
             user.Id = null;
             var createdUser = _userService.Create(user);
-            return Ok(createdUser);
+            return Ok(new { message = "User created successfully", user = createdUser });
         }
 
         [HttpPost("login")]
-        public ActionResult<User> Login([FromBody] User loginUser)
+        public IActionResult Login([FromBody] User loginUser)
         {
             var user = _userService.GetByUsername(loginUser.Username);
             if (user == null || user.Password != loginUser.Password)
-                return Unauthorized("Invalid username or password");
+            {
+                return Unauthorized(new { error = "InvalidCredentials", message = "Invalid username or password" });
+            }
 
-            return Ok(user);
+            var safeUser = new { user.Id, user.Username, user.Email };
+            return Ok(safeUser);
         }
 
         [HttpPost("forgot-password")]
         public IActionResult ForgotPassword([FromBody] dynamic request)
         {
-            string email = request.email;
+            string email = request?.email;
+            if (string.IsNullOrEmpty(email))
+            {
+                return BadRequest(new { error = "MissingEmail", message = "Email is required." });
+            }
+
             var user = _userService.GetByEmail(email);
             if (user == null)
-                return NotFound("Email not found");
+            {
+                return Ok(new { message = "If your email is registered, a reset code was sent." });
+            }
 
             string resetCode = Guid.NewGuid().ToString().Substring(0, 6).ToUpper();
             _userService.SaveResetCode(email, resetCode);
 
-            return Ok(new { message = "Reset code sent to email", code = resetCode });
+            Console.WriteLine($"[DEBUG] Password reset code for {email}: {resetCode}");
+
+            return Ok(new { message = "If your email is registered, a reset code was sent." });
         }
 
         [HttpPost("verify-reset-code")]
         public IActionResult VerifyResetCode([FromBody] dynamic request)
         {
-            string email = request.email;
-            string code = request.code;
+            string email = request?.email;
+            string code = request?.code;
+
+            if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(code))
+            {
+                return BadRequest(new { error = "MissingFields", message = "Email and code are required." });
+            }
 
             if (_userService.VerifyResetCode(email, code))
-                return Ok("Code verified successfully");
+            {
+                return Ok(new { message = "Code verified successfully" });
+            }
 
-            return BadRequest("Invalid or expired code");
+            return BadRequest(new { error = "InvalidCode", message = "Invalid or expired code." });
         }
 
         [HttpPost("reset-password")]
         public IActionResult ResetPassword([FromBody] dynamic request)
         {
-            string email = request.email;
-            string newPassword = request.newPassword;
+            string email = request?.email;
+            string code = request?.code;
+            string newPassword = request?.newPassword;
 
-            if (string.IsNullOrEmpty(newPassword) || newPassword.Length < 8)
-                return BadRequest("Password must be at least 8 characters long");
+            if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(code) || string.IsNullOrEmpty(newPassword))
+            {
+                return BadRequest(new { error = "MissingFields", message = "Email, code, and new password are required." });
+            }
+
+            if (!IsStrongPassword(newPassword))
+            {
+                return BadRequest(new
+                {
+                    error = "WeakPassword",
+                    message = "New password must be at least 8 characters and include uppercase, lowercase, number, and symbol."
+                });
+            }
+
+            if (!_userService.VerifyResetCode(email, code))
+            {
+                return BadRequest(new { error = "InvalidCode", message = "Invalid or expired reset code." });
+            }
 
             bool success = _userService.ResetPassword(email, newPassword);
             if (!success)
-                return NotFound("Email not found or reset failed");
+            {
+                return NotFound(new { error = "UserNotFound", message = "User not found." });
+            }
 
-            return Ok("Password has been reset successfully");
+            return Ok(new { message = "Password has been reset successfully" });
+        }
+
+        private bool IsStrongPassword(string password)
+        {
+            if (string.IsNullOrEmpty(password) || password.Length < 8)
+                return false;
+
+            bool hasUpper = password.Any(char.IsUpper);
+            bool hasLower = password.Any(char.IsLower);
+            bool hasDigit = password.Any(char.IsDigit);
+            bool hasSpecial = password.Any(ch => !char.IsLetterOrDigit(ch));
+
+            return hasUpper && hasLower && hasDigit && hasSpecial;
         }
     }
 }
