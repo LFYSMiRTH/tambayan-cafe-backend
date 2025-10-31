@@ -1,5 +1,4 @@
-﻿// File: Services/InventoryService.cs
-using MongoDB.Driver;
+﻿using MongoDB.Driver;
 using TambayanCafeAPI.Models;
 
 namespace TambayanCafeAPI.Services
@@ -22,9 +21,10 @@ namespace TambayanCafeAPI.Services
         {
             if (item == null)
                 throw new ArgumentNullException(nameof(item));
-
-            item.Id = null;
+            item.Id = null; 
             _inventory.InsertOne(item);
         }
+
+        public IMongoCollection<InventoryItem> GetCollection() => _inventory;
     }
 }

@@ -1,5 +1,6 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
+using System.Collections.Generic;
 
 namespace TambayanCafeAPI.Models
 {
@@ -10,7 +11,10 @@ namespace TambayanCafeAPI.Models
         public string? Id { get; set; }
 
         [BsonElement("userId")]
-        public string UserId { get; set; } 
+        public string UserId { get; set; }
+
+        [BsonElement("items")]
+        public List<OrderItem> Items { get; set; } = new List<OrderItem>();
 
         [BsonElement("totalAmount")]
         public decimal TotalAmount { get; set; }
@@ -20,6 +24,5 @@ namespace TambayanCafeAPI.Models
 
         [BsonElement("createdAt")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
     }
 }

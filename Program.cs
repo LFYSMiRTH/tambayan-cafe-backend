@@ -30,10 +30,17 @@ builder.Services.AddSingleton<IMongoDatabase>(sp =>
 });
 
 builder.Services.AddSingleton<ProductService>();
-builder.Services.AddSingleton<OrderService>();
-builder.Services.AddSingleton<UserService>();
 builder.Services.AddSingleton<InventoryService>();
 builder.Services.AddSingleton<SupplierService>();
+builder.Services.AddSingleton<UserService>();
+
+builder.Services.AddSingleton<OrderService>(sp =>
+{
+    var db = sp.GetRequiredService<IMongoDatabase>();
+    var productService = sp.GetRequiredService<ProductService>();
+    var inventoryService = sp.GetRequiredService<InventoryService>();
+    return new OrderService(db, productService, inventoryService);
+});
 
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
