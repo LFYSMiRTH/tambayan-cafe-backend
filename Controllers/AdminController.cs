@@ -1,8 +1,10 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿// File: Controllers/AdminController.cs
+using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using TambayanCafeAPI.Models;
 using TambayanCafeAPI.Services;
 using TambayanCafeSystem.Services;
+using System.Linq;
 
 namespace TambayanCafeSystem.Controllers
 {
@@ -62,7 +64,7 @@ namespace TambayanCafeSystem.Controllers
         [HttpPut("menu/{id}")]
         public IActionResult UpdateMenuItem(string id, [FromBody] Product updatedItem)
         {
-            if (!MongoDB.Bson.ObjectId.TryParse(id, out _))
+            if (!ObjectId.TryParse(id, out _))
                 return BadRequest("Invalid ID format.");
             if (string.IsNullOrWhiteSpace(updatedItem.Name))
                 return BadRequest("Name is required.");
@@ -74,7 +76,7 @@ namespace TambayanCafeSystem.Controllers
         [HttpDelete("menu/{id}")]
         public IActionResult DeleteMenuItem(string id)
         {
-            if (!MongoDB.Bson.ObjectId.TryParse(id, out _))
+            if (!ObjectId.TryParse(id, out _))
                 return BadRequest("Invalid ID format.");
 
             _productService.Delete(id);
@@ -85,6 +87,18 @@ namespace TambayanCafeSystem.Controllers
         public ActionResult<List<InventoryItem>> GetInventory()
         {
             return Ok(_inventoryService.GetAll());
+        }
+
+        [HttpPost("inventory")]
+        public IActionResult AddInventoryItem([FromBody] InventoryItem item)
+        {
+            if (string.IsNullOrWhiteSpace(item?.Name))
+                return BadRequest("Ingredient name is required.");
+            if (item.CurrentStock < 0 || item.ReorderLevel < 0)
+                return BadRequest("Stock and reorder level must be non-negative.");
+
+            _inventoryService.Create(item);
+            return Ok(item);
         }
 
         [HttpGet("suppliers")]
@@ -106,7 +120,7 @@ namespace TambayanCafeSystem.Controllers
         [HttpPut("suppliers/{id}")]
         public IActionResult UpdateSupplier(string id, [FromBody] Supplier supplier)
         {
-            if (!MongoDB.Bson.ObjectId.TryParse(id, out _))
+            if (!ObjectId.TryParse(id, out _))
                 return BadRequest("Invalid ID format.");
             if (string.IsNullOrWhiteSpace(supplier.Name) || string.IsNullOrWhiteSpace(supplier.Email))
                 return BadRequest("Name and Email are required.");
