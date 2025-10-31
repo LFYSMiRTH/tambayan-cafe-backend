@@ -1,7 +1,7 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace TambayanCafeSystem.Models
+namespace TambayanCafeAPI.Models
 {
     public class Product
     {
@@ -10,7 +10,7 @@ namespace TambayanCafeSystem.Models
         public string? Id { get; set; }
 
         [BsonElement("name")]
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         [BsonElement("price")]
         public decimal Price { get; set; }
@@ -23,5 +23,8 @@ namespace TambayanCafeSystem.Models
 
         [BsonElement("category")]
         public string? Category { get; set; }
+
+        [BsonElement("isAvailable")]
+        public bool IsAvailable { get; set; } = true;
     }
 }
