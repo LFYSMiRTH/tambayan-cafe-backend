@@ -2,7 +2,7 @@
 using TambayanCafeAPI.Models;
 using MongoDB.Bson;
 
-namespace TambayanCafeSystem.Services
+namespace TambayanCafeAPI.Services
 {
     public class ProductService
     {
@@ -27,7 +27,10 @@ namespace TambayanCafeSystem.Services
                 .Set("name", product.Name)
                 .Set("price", product.Price)
                 .Set("stockQuantity", product.StockQuantity)
-                .Set("category", product.Category ?? ""); // prevent null
+                .Set("lowStockThreshold", product.LowStockThreshold)
+                .Set("category", product.Category ?? "")
+                .Set("isAvailable", product.IsAvailable)
+                .Set("ingredients", product.Ingredients); 
 
             _products.UpdateOne(filter, update);
         }

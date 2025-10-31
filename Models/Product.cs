@@ -1,5 +1,6 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
+using System.Collections.Generic;
 
 namespace TambayanCafeAPI.Models
 {
@@ -26,5 +27,20 @@ namespace TambayanCafeAPI.Models
 
         [BsonElement("isAvailable")]
         public bool IsAvailable { get; set; } = true;
+
+        [BsonElement("ingredients")]
+        public List<MenuItemIngredient> Ingredients { get; set; } = new List<MenuItemIngredient>();
+    }
+
+    public class MenuItemIngredient
+    {
+        [BsonElement("inventoryItemId")]
+        public string InventoryItemId { get; set; } = string.Empty;
+
+        [BsonElement("quantityRequired")]
+        public decimal QuantityRequired { get; set; } = 1;
+
+        [BsonElement("unit")]
+        public string Unit { get; set; } = "pcs";
     }
 }

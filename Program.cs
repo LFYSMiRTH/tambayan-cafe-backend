@@ -29,12 +29,9 @@ builder.Services.AddSingleton<IMongoDatabase>(sp =>
     return client.GetDatabase(databaseName);
 });
 
-// Existing services
 builder.Services.AddSingleton<ProductService>();
 builder.Services.AddSingleton<OrderService>();
 builder.Services.AddSingleton<UserService>();
-
-// 👇 NEW: Inventory & Supplier services
 builder.Services.AddSingleton<InventoryService>();
 builder.Services.AddSingleton<SupplierService>();
 
@@ -94,7 +91,6 @@ app.Use(async (context, next) =>
     catch (Exception ex)
     {
         Console.WriteLine($"[ERROR] {ex}");
-
         context.Response.StatusCode = 500;
         context.Response.ContentType = "application/json";
         await context.Response.WriteAsync(
@@ -104,9 +100,7 @@ app.Use(async (context, next) =>
 });
 
 app.MapControllers();
-
 app.MapGet("/health", () => "Tambayan Café API is live!");
-
 app.MapGet("/health/db", async (IMongoDatabase database) =>
 {
     try

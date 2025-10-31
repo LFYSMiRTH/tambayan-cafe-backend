@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using MongoDB.Bson;
 using TambayanCafeAPI.Models;
 using TambayanCafeAPI.Services;
 using TambayanCafeSystem.Services;
@@ -80,10 +81,6 @@ namespace TambayanCafeSystem.Controllers
             return Ok();
         }
 
-        // =============================
-        // 🆕 INVENTORY MANAGEMENT
-        // =============================
-
         [HttpGet("inventory")]
         public ActionResult<List<InventoryItem>> GetInventory()
         {
@@ -116,6 +113,44 @@ namespace TambayanCafeSystem.Controllers
 
             _supplierService.Update(id, supplier);
             return Ok();
+        }
+
+        [HttpGet("menu/{id}/ingredients")]
+        public ActionResult<List<MenuItemIngredient>> GetMenuItemIngredients(string id)
+        {
+            if (!ObjectId.TryParse(id, out _))
+                return BadRequest("Invalid ID format.");
+
+            var product = _productService.GetAll().FirstOrDefault(p => p.Id == id);
+            if (product == null)
+                return NotFound();
+
+            return Ok(product.Ingredients);
+        }
+
+        [HttpPut("menu/{id}/ingredients")]
+        public IActionResult UpdateMenuItemIngredients(string id, [FromBody] List<MenuItemIngredient> ingredients)
+        {
+            if (!ObjectId.TryParse(id, out _))
+                return BadRequest("Invalid ID format.");
+
+            var product = _productService.GetAll().FirstOrDefault(p => p.Id == id);
+            if (product == null)
+                return NotFound();
+
+            var inventoryItems = _inventoryService.GetAll();
+            var validIds = inventoryItems.Select(i => i.Id).ToHashSet();
+            foreach (var ing in ingredients)
+            {
+                if (string.IsNullOrWhiteSpace(ing.InventoryItemId) || !validIds.Contains(ing.InventoryItemId))
+                    return BadRequest($"Invalid or missing inventory item ID: {ing.InventoryItemId}");
+                if (ing.QuantityRequired <= 0)
+                    return BadRequest("Quantity required must be greater than 0.");
+            }
+
+            product.Ingredients = ingredients;
+            _productService.Update(id, product);
+            return Ok(new { message = "Ingredients updated successfully" });
         }
     }
 }
