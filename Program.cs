@@ -1,5 +1,6 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Driver;
+using TambayanCafeAPI.Services;
 using TambayanCafeSystem.Services;
 
 System.Net.ServicePointManager.SecurityProtocol =
@@ -28,9 +29,14 @@ builder.Services.AddSingleton<IMongoDatabase>(sp =>
     return client.GetDatabase(databaseName);
 });
 
+// Existing services
 builder.Services.AddSingleton<ProductService>();
 builder.Services.AddSingleton<OrderService>();
 builder.Services.AddSingleton<UserService>();
+
+// 👇 NEW: Inventory & Supplier services
+builder.Services.AddSingleton<InventoryService>();
+builder.Services.AddSingleton<SupplierService>();
 
 builder.Services.ConfigureHttpJsonOptions(options =>
 {

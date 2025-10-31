@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using TambayanCafeAPI.Models;
+using TambayanCafeAPI.Services;
 using TambayanCafeSystem.Models;
 using TambayanCafeSystem.Services;
 
@@ -10,12 +12,19 @@ namespace TambayanCafeSystem.Controllers
     {
         private readonly OrderService _orderService;
         private readonly ProductService _productService;
+        private readonly InventoryService _inventoryService;
+        private readonly SupplierService _supplierService;
 
-        // Use constructor injection (register services in Program.cs)
-        public AdminController(OrderService orderService, ProductService productService)
+        public AdminController(
+            OrderService orderService,
+            ProductService productService,
+            InventoryService inventoryService,
+            SupplierService supplierService)
         {
             _orderService = orderService;
             _productService = productService;
+            _inventoryService = inventoryService;
+            _supplierService = supplierService;
         }
 
         [HttpGet("dashboard")]
@@ -30,7 +39,6 @@ namespace TambayanCafeSystem.Controllers
             });
         }
 
-        // ✅ NEW: Get all menu items
         [HttpGet("menu")]
         public ActionResult<List<Product>> GetAllMenuItems()
         {
@@ -51,7 +59,6 @@ namespace TambayanCafeSystem.Controllers
             return Ok(item);
         }
 
-        // ✅ NEW: Update menu item
         [HttpPut("menu/{id}")]
         public IActionResult UpdateMenuItem(string id, [FromBody] Product updatedItem)
         {
@@ -64,7 +71,6 @@ namespace TambayanCafeSystem.Controllers
             return Ok();
         }
 
-        // ✅ NEW: Delete menu item
         [HttpDelete("menu/{id}")]
         public IActionResult DeleteMenuItem(string id)
         {
@@ -72,6 +78,44 @@ namespace TambayanCafeSystem.Controllers
                 return BadRequest("Invalid ID format.");
 
             _productService.Delete(id);
+            return Ok();
+        }
+
+        // =============================
+        // 🆕 INVENTORY MANAGEMENT
+        // =============================
+
+        [HttpGet("inventory")]
+        public ActionResult<List<InventoryItem>> GetInventory()
+        {
+            return Ok(_inventoryService.GetAll());
+        }
+
+        [HttpGet("suppliers")]
+        public ActionResult<List<Supplier>> GetSuppliers()
+        {
+            return Ok(_supplierService.GetAll());
+        }
+
+        [HttpPost("suppliers")]
+        public ActionResult<Supplier> AddSupplier([FromBody] Supplier supplier)
+        {
+            if (string.IsNullOrWhiteSpace(supplier.Name) || string.IsNullOrWhiteSpace(supplier.Email))
+                return BadRequest("Name and Email are required.");
+
+            var created = _supplierService.Create(supplier);
+            return Ok(created);
+        }
+
+        [HttpPut("suppliers/{id}")]
+        public IActionResult UpdateSupplier(string id, [FromBody] Supplier supplier)
+        {
+            if (!MongoDB.Bson.ObjectId.TryParse(id, out _))
+                return BadRequest("Invalid ID format.");
+            if (string.IsNullOrWhiteSpace(supplier.Name) || string.IsNullOrWhiteSpace(supplier.Email))
+                return BadRequest("Name and Email are required.");
+
+            _supplierService.Update(id, supplier);
             return Ok();
         }
     }
