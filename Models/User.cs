@@ -2,7 +2,7 @@
 using MongoDB.Bson.Serialization.Attributes;
 using System;
 
-namespace TambayanCafeSystem.Models
+namespace TambayanCafeAPI.Models
 {
     public class User
     {

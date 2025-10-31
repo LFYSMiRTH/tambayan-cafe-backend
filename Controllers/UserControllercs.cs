@@ -1,9 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using TambayanCafeSystem.Models;
 using TambayanCafeSystem.Services;
 using System;
 using System.Linq;
 using System.Text.Json;
+using TambayanCafeAPI.Models;
 
 namespace TambayanCafeSystem.Controllers
 {

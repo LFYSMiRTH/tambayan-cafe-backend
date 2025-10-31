@@ -1,6 +1,5 @@
 ﻿using MongoDB.Driver;
 using TambayanCafeAPI.Models;
-using TambayanCafeSystem.Models;
 
 namespace TambayanCafeSystem.Services
 {

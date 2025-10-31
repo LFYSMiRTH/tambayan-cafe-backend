@@ -1,7 +1,7 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace TambayanCafeSystem.Models
+namespace TambayanCafeAPI.Models
 {
     public class Order
     {

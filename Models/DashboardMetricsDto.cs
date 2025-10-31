@@ -1,4 +1,4 @@
-﻿namespace TambayanCafeSystem.Models
+﻿namespace TambayanCafeAPI.Models
 {
     public class DashboardMetricsDto
     {
