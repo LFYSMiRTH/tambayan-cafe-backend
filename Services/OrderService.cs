@@ -23,9 +23,58 @@ namespace TambayanCafeAPI.Services
             _inventoryService = inventoryService;
         }
 
+        public void Create(Order order)
+        {
+            if (order == null)
+                throw new ArgumentNullException(nameof(order));
+
+            order.CreatedAt = DateTime.UtcNow;
+
+            DeductInventoryForOrder(order);
+            _orders.InsertOne(order);
+        }
+
+        private void DeductInventoryForOrder(Order order)
+        {
+            foreach (var orderItem in order.Items)
+            {
+                var product = _productService.GetAll().FirstOrDefault(p => p.Id == orderItem.ProductId);
+                if (product == null) continue;
+
+                foreach (var ingredient in product.Ingredients)
+                {
+                    var inventoryItem = _inventoryService.GetAll()
+                        .FirstOrDefault(i => i.Id == ingredient.InventoryItemId);
+                    if (inventoryItem == null) continue;
+
+                    var needed = ingredient.QuantityRequired * orderItem.Quantity;
+                    if (inventoryItem.CurrentStock < needed)
+                    {
+                        throw new InvalidOperationException(
+                            $"Not enough stock for '{inventoryItem.Name}'. Required: {needed}, Available: {inventoryItem.CurrentStock}");
+                    }
+                }
+            }
+
+            foreach (var orderItem in order.Items)
+            {
+                var product = _productService.GetAll().FirstOrDefault(p => p.Id == orderItem.ProductId);
+                if (product == null) continue;
+
+                foreach (var ingredient in product.Ingredients)
+                {
+                    var filter = Builders<InventoryItem>.Filter.Eq(i => i.Id, ingredient.InventoryItemId);
+                    var update = Builders<InventoryItem>.Update.Inc(i => i.CurrentStock, -ingredient.QuantityRequired * orderItem.Quantity);
+                    _inventoryService.GetCollection().UpdateOne(filter, update);
+                }
+            }
+        }
+
+        // Async method for reports
         public async Task<List<Order>> GetAllOrdersAsync() =>
             await _orders.Find(_ => true).ToListAsync();
 
+        // Sync methods for dashboard metrics (kept for compatibility)
         public List<Order> GetAll() => _orders.Find(_ => true).ToList();
 
         public long GetTotalCount() =>
@@ -106,48 +155,6 @@ namespace TambayanCafeAPI.Services
                 TotalRevenue = revenue,
                 TotalExpenses = revenue * 0.4m
             };
-        }
-
-        public void Create(Order order)
-        {
-            DeductInventoryForOrder(order);
-            _orders.InsertOne(order);
-        }
-
-        private void DeductInventoryForOrder(Order order)
-        {
-            foreach (var orderItem in order.Items)
-            {
-                var product = _productService.GetAll().FirstOrDefault(p => p.Id == orderItem.ProductId);
-                if (product == null) continue;
-
-                foreach (var ingredient in product.Ingredients)
-                {
-                    var inventoryItem = _inventoryService.GetAll()
-                        .FirstOrDefault(i => i.Id == ingredient.InventoryItemId);
-                    if (inventoryItem == null) continue;
-
-                    var needed = ingredient.QuantityRequired * orderItem.Quantity;
-                    if (inventoryItem.CurrentStock < needed) 
-                    {
-                        throw new InvalidOperationException(
-                            $"Not enough stock for '{inventoryItem.Name}'. Required: {needed}, Available: {inventoryItem.CurrentStock}");
-                    }
-                }
-            }
-
-            foreach (var orderItem in order.Items)
-            {
-                var product = _productService.GetAll().FirstOrDefault(p => p.Id == orderItem.ProductId);
-                if (product == null) continue;
-
-                foreach (var ingredient in product.Ingredients)
-                {
-                    var filter = Builders<InventoryItem>.Filter.Eq(i => i.Id, ingredient.InventoryItemId);
-                    var update = Builders<InventoryItem>.Update.Inc(i => i.CurrentStock, -ingredient.QuantityRequired * orderItem.Quantity);
-                    _inventoryService.GetCollection().UpdateOne(filter, update);
-                }
-            }
         }
     }
 }
