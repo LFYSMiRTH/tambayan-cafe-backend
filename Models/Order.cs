@@ -1,5 +1,6 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
+using System;
 using System.Collections.Generic;
 
 namespace TambayanCafeAPI.Models
@@ -11,7 +12,10 @@ namespace TambayanCafeAPI.Models
         public string? Id { get; set; }
 
         [BsonElement("userId")]
-        public string UserId { get; set; }
+        public string UserId { get; set; } = string.Empty;
+
+        [BsonElement("customerEmail")]
+        public string CustomerEmail { get; set; } = string.Empty;
 
         [BsonElement("items")]
         public List<OrderItem> Items { get; set; } = new List<OrderItem>();
