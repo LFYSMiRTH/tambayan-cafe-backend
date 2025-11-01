@@ -42,12 +42,7 @@ namespace TambayanCafeAPI.Controllers
         [HttpGet("expenses")]
         public IActionResult GetExpenses()
         {
-            var mockExpenses = new List<object>
-            {
-                new { Description = "Coffee Beans", Amount = 2500m, Date = "2025-10-01" },
-                new { Description = "Milk Supply", Amount = 1800m, Date = "2025-10-10" }
-            };
-            return Ok(mockExpenses);
+            return Ok(new List<ExpenseDto>());
         }
     }
 }

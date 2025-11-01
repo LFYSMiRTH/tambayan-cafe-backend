@@ -2,8 +2,8 @@
 {
     public class ExpenseDto
     {
-        public string Description { get; set; }
+        public string Description { get; set; } = string.Empty;
         public decimal Amount { get; set; }
-        public DateTime Date { get; set; }
+        public string Date { get; set; } = string.Empty;
     }
 }
