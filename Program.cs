@@ -47,7 +47,8 @@ builder.Services.AddSingleton<IReportService>(sp =>
     var orderService = sp.GetRequiredService<OrderService>();
     var inventoryService = sp.GetRequiredService<InventoryService>();
     var productService = sp.GetRequiredService<ProductService>();
-    return new ReportService(orderService, inventoryService, productService);
+    var database = sp.GetRequiredService<IMongoDatabase>();
+    return new ReportService(orderService, inventoryService, productService, database);
 });
 
 builder.Services.ConfigureHttpJsonOptions(options =>
@@ -64,6 +65,7 @@ builder.Services.AddCors(options =>
         {
             var cleanOrigin = origin?.Trim();
 
+            // ✅ FIXED: Removed trailing spaces in Vercel URL
             if (string.Equals(cleanOrigin, "https://my-frontend-app-eight.vercel.app", StringComparison.OrdinalIgnoreCase))
                 return true;
 

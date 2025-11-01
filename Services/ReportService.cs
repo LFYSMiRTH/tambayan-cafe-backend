@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MongoDB.Driver;
 using TambayanCafeAPI.Models;
 
 namespace TambayanCafeAPI.Services
@@ -11,20 +12,35 @@ namespace TambayanCafeAPI.Services
         private readonly OrderService _orderService;
         private readonly InventoryService _inventoryService;
         private readonly ProductService _productService;
+        private readonly IMongoCollection<ReportLog> _reportLogs;
 
         public ReportService(
             OrderService orderService,
             InventoryService inventoryService,
-            ProductService productService)
+            ProductService productService,
+            IMongoDatabase database)
         {
             _orderService = orderService;
             _inventoryService = inventoryService;
             _productService = productService;
+            _reportLogs = database.GetCollection<ReportLog>("reportLogs");
         }
 
         public async Task<List<ReportHistoryItem>> GetReportHistoryAsync()
         {
-            return new List<ReportHistoryItem>();
+            var logs = await _reportLogs
+                .Find(_ => true)
+                .SortByDescending(x => x.GeneratedAt)
+                .Limit(50)
+                .ToListAsync();
+
+            return logs.Select(log => new ReportHistoryItem
+            {
+                Title = log.Title,
+                Type = log.Type,
+                Format = log.Format,
+                GeneratedAt = log.GeneratedAt
+            }).ToList();
         }
 
         public async Task<SalesReportResponse> GenerateSalesReportAsync(SalesReportRequest request)
