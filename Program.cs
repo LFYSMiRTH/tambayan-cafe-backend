@@ -42,6 +42,14 @@ builder.Services.AddSingleton<OrderService>(sp =>
     return new OrderService(db, productService, inventoryService);
 });
 
+builder.Services.AddSingleton<IReportService>(sp =>
+{
+    var orderService = sp.GetRequiredService<OrderService>();
+    var inventoryService = sp.GetRequiredService<InventoryService>();
+    var productService = sp.GetRequiredService<ProductService>();
+    return new ReportService(orderService, inventoryService, productService);
+});
+
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.PropertyNamingPolicy =
@@ -88,7 +96,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowFrontend");
 app.UseHttpsRedirection();
-
 app.Use(async (context, next) =>
 {
     try
@@ -107,7 +114,9 @@ app.Use(async (context, next) =>
 });
 
 app.MapControllers();
+
 app.MapGet("/health", () => "Tambayan Café API is live!");
+
 app.MapGet("/health/db", async (IMongoDatabase database) =>
 {
     try
