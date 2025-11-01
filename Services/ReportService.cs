@@ -24,11 +24,7 @@ namespace TambayanCafeAPI.Services
 
         public async Task<List<ReportHistoryItem>> GetReportHistoryAsync()
         {
-            return new List<ReportHistoryItem>
-            {
-                new() { Title = "Sales Report (Jan 2025)", Type = "sales", Format = "PDF", GeneratedAt = "2025-01-15T10:00:00" },
-                new() { Title = "Inventory Report", Type = "inventory", Format = "CSV", GeneratedAt = "2025-01-10T14:30:00" }
-            };
+            return new List<ReportHistoryItem>();
         }
 
         public async Task<SalesReportResponse> GenerateSalesReportAsync(SalesReportRequest request)
