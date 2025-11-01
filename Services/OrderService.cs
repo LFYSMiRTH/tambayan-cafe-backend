@@ -70,11 +70,9 @@ namespace TambayanCafeAPI.Services
             }
         }
 
-        // Async method for reports
         public async Task<List<Order>> GetAllOrdersAsync() =>
             await _orders.Find(_ => true).ToListAsync();
 
-        // Sync methods for dashboard metrics (kept for compatibility)
         public List<Order> GetAll() => _orders.Find(_ => true).ToList();
 
         public long GetTotalCount() =>

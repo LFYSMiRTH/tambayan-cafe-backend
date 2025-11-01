@@ -62,9 +62,9 @@ namespace TambayanCafeAPI.Services
 
             var reportItems = items.Select(i => new InventoryReportItem
             {
-                Name = i.Name,                
+                Name = i.Name,
                 Category = i.Category ?? "Uncategorized",
-                CurrentStock = i.CurrentStock, 
+                CurrentStock = i.CurrentStock,
                 Unit = i.Unit ?? "unit",
                 ReorderLevel = i.ReorderLevel
             }).ToList();

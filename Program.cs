@@ -64,6 +64,7 @@ builder.Services.AddCors(options =>
         {
             var cleanOrigin = origin?.Trim();
 
+            // ✅ FIXED: removed trailing spaces
             if (string.Equals(cleanOrigin, "https://my-frontend-app-eight.vercel.app", StringComparison.OrdinalIgnoreCase))
                 return true;
 
@@ -96,6 +97,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowFrontend");
 app.UseHttpsRedirection();
+
 app.Use(async (context, next) =>
 {
     try
