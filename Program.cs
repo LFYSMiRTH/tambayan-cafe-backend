@@ -64,7 +64,6 @@ builder.Services.AddCors(options =>
         {
             var cleanOrigin = origin?.Trim();
 
-            // ✅ FIXED: removed trailing spaces
             if (string.Equals(cleanOrigin, "https://my-frontend-app-eight.vercel.app", StringComparison.OrdinalIgnoreCase))
                 return true;
 

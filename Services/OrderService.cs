@@ -28,6 +28,7 @@ namespace TambayanCafeAPI.Services
             if (order == null)
                 throw new ArgumentNullException(nameof(order));
 
+            // ✅ CRITICAL: Always set CreatedAt to current UTC time
             order.CreatedAt = DateTime.UtcNow;
 
             DeductInventoryForOrder(order);
