@@ -219,7 +219,7 @@ namespace TambayanCafeSystem.Controllers
             return Ok(new { message = "Password has been reset successfully" });
         }
 
-        // ✅ NEW ENDPOINT: Create Admin or Staff User (Fixed for your User model)
+        // ✅ NEW ENDPOINT: Create Admin or Staff User
         [HttpPost("admin/users")]
         public async Task<IActionResult> CreateAdminOrStaffUser([FromBody] JsonElement request)
         {
@@ -249,7 +249,6 @@ namespace TambayanCafeSystem.Controllers
                 // === Generate username from name ===
                 string GenerateUsername(string name)
                 {
-                    // Clean name: remove non-alphanumeric except spaces
                     var clean = Regex.Replace(name, @"[^a-zA-Z0-9\s]", "");
                     var parts = clean.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
                     var first = parts.FirstOrDefault()?.ToLower() ?? "user";
@@ -286,23 +285,20 @@ namespace TambayanCafeSystem.Controllers
                     for (int i = 4; i < 12; i++)
                         password[i] = all[rng.Next(all.Length)];
 
-                    // Shuffle
                     return new string(password.OrderBy(_ => Guid.NewGuid()).ToArray());
                 }
 
                 var username = GenerateUsername(fullName);
                 var password = GenerateStrongPassword();
 
-                // Create user object — only using fields your User model supports
                 var newUser = new User
                 {
                     Username = username,
                     Email = email,
-                    Password = password, // plain-text (matches your current design)
+                    Password = password,
                     Role = role
                 };
 
-                // Save to DB
                 var createdUser = _userService.Create(newUser);
 
                 // === SEND WELCOME EMAIL ===
@@ -343,7 +339,6 @@ namespace TambayanCafeSystem.Controllers
                     username = createdUser.Username,
                     email = createdUser.Email,
                     role = createdUser.Role
-                    // Note: 'name' is not stored, so not returned
                 });
 
             }
