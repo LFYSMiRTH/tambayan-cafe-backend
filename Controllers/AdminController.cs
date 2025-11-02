@@ -15,17 +15,20 @@ namespace TambayanCafeSystem.Controllers
         private readonly ProductService _productService;
         private readonly InventoryService _inventoryService;
         private readonly SupplierService _supplierService;
+        private readonly UserService _userService; 
 
         public AdminController(
             OrderService orderService,
             ProductService productService,
             InventoryService inventoryService,
-            SupplierService supplierService)
+            SupplierService supplierService,
+            UserService userService) 
         {
             _orderService = orderService;
             _productService = productService;
             _inventoryService = inventoryService;
             _supplierService = supplierService;
+            _userService = userService; // ← Added
         }
 
         [HttpGet("dashboard")]
@@ -164,6 +167,63 @@ namespace TambayanCafeSystem.Controllers
             product.Ingredients = ingredients;
             _productService.Update(id, product);
             return Ok(new { message = "Ingredients updated successfully" });
+        }
+
+        [HttpGet("users")]
+        public ActionResult<List<User>> GetAllUsers()
+        {
+            return Ok(_userService.Get());
+        }
+
+        [HttpPost("users")]
+        public IActionResult CreateUser([FromBody] User user)
+        {
+            if (user == null)
+                return BadRequest("User data is required.");
+
+            if (!IsStrongPassword(user.Password))
+            {
+                return BadRequest(new
+                {
+                    error = "WeakPassword",
+                    message = "Password must be at least 8 characters and include uppercase, lowercase, number, and symbol."
+                });
+            }
+
+            if (_userService.GetByUsername(user.Username) != null)
+            {
+                return Conflict(new { error = "UsernameExists", message = "Username already taken." });
+            }
+
+            if (_userService.GetByEmail(user.Email) != null)
+            {
+                return Conflict(new { error = "EmailExists", message = "Email already registered." });
+            }
+
+            user.Id = null;
+            var createdUser = _userService.Create(user);
+            return Ok(createdUser);
+        }
+
+        [HttpGet("customers")]
+        public ActionResult<List<User>> GetAllCustomers()
+        {
+
+            return Ok(_userService.Get());
+        }
+
+
+        private bool IsStrongPassword(string password)
+        {
+            if (string.IsNullOrEmpty(password) || password.Length < 8)
+                return false;
+
+            bool hasUpper = password.Any(char.IsUpper);
+            bool hasLower = password.Any(char.IsLower);
+            bool hasDigit = password.Any(char.IsDigit);
+            bool hasSpecial = password.Any(ch => !char.IsLetterOrDigit(ch));
+
+            return hasUpper && hasLower && hasDigit && hasSpecial;
         }
     }
 }
