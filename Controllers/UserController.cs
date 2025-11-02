@@ -57,7 +57,9 @@ namespace TambayanCafeSystem.Controllers
                 return Conflict(new { error = "EmailExists", message = "Email already registered." });
             }
 
+            // ✅ CRITICAL: Public signup = customer ONLY
             user.Id = null;
+            user.Role = "customer"; // ← Enforced
             var createdUser = _userService.Create(user);
             return Ok(new { message = "User created successfully", user = createdUser });
         }
@@ -71,8 +73,14 @@ namespace TambayanCafeSystem.Controllers
                 return Unauthorized(new { error = "InvalidCredentials", message = "Invalid username or password" });
             }
 
-            var safeUser = new { user.Id, user.Username, user.Email };
-            return Ok(safeUser);
+            // ✅ Return role so frontend can redirect correctly
+            return Ok(new
+            {
+                id = user.Id,
+                username = user.Username,
+                email = user.Email,
+                role = user.Role // "customer" or "staff"
+            });
         }
 
         [HttpPost("forgot-password")]
