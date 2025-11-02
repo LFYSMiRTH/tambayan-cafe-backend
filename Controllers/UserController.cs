@@ -79,7 +79,7 @@ namespace TambayanCafeSystem.Controllers
                 id = user.Id,
                 username = user.Username,
                 email = user.Email,
-                role = user.Role 
+                role = user.Role
             });
         }
 
