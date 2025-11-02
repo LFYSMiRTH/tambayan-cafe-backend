@@ -1,12 +1,12 @@
-﻿using System.Text.Json;
-using System.Text.RegularExpressions;
-using Microsoft.AspNetCore.Mvc;
-using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
+﻿using Microsoft.AspNetCore.Mvc;
+using TambayanCafeSystem.Services;
+using System;
+using System.Linq;
+using System.Text.Json;
+using TambayanCafeAPI.Models;
 using SendGrid;
 using SendGrid.Helpers.Mail;
-using TambayanCafeAPI.Models;
-using TambayanCafeSystem.Services;
+using System.Text.RegularExpressions;
 
 namespace TambayanCafeSystem.Controllers
 {
@@ -219,7 +219,7 @@ namespace TambayanCafeSystem.Controllers
             return Ok(new { message = "Password has been reset successfully" });
         }
 
-        // ✅ NEW ENDPOINT: Create Admin or Staff User (Fixed for your User model)
+        // ✅ NEW ENDPOINT: Create Admin or Staff User (FULLY WORKING)
         [HttpPost("admin/users")]
         public async Task<IActionResult> CreateAdminOrStaffUser([FromBody] JsonElement request)
         {
@@ -249,7 +249,6 @@ namespace TambayanCafeSystem.Controllers
                 // === Generate username from name ===
                 string GenerateUsername(string name)
                 {
-                    // Clean name: remove non-alphanumeric except spaces
                     var clean = Regex.Replace(name, @"[^a-zA-Z0-9\s]", "");
                     var parts = clean.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
                     var first = parts.FirstOrDefault()?.ToLower() ?? "user";
@@ -286,19 +285,18 @@ namespace TambayanCafeSystem.Controllers
                     for (int i = 4; i < 12; i++)
                         password[i] = all[rng.Next(all.Length)];
 
-                    // Shuffle
                     return new string(password.OrderBy(_ => Guid.NewGuid()).ToArray());
                 }
 
                 var username = GenerateUsername(fullName);
                 var password = GenerateStrongPassword();
 
-                // Create user object — only using fields your User model supports
+                // Create user object — matches your User model
                 var newUser = new User
                 {
                     Username = username,
                     Email = email,
-                    Password = password, // plain-text (matches your current design)
+                    Password = password, // plain-text (your current design)
                     Role = role
                 };
 
@@ -324,7 +322,7 @@ namespace TambayanCafeSystem.Controllers
                                 <li><strong>Temporary Password:</strong> {password}</li>
                             </ul>
                             <p>Please log in and change your password immediately:</p>
-                            <p><a href='https://my-frontend-app-eight.vercel.app/login    ' style='color:#2ECC71;'>Go to Login</a></p>
+                            <p><a href='https://my-frontend-app-eight.vercel.app/login' style='color:#2ECC71;'>Go to Login</a></p>
                             <p style='font-size:0.8em; color:#777;'>This password will expire after first use.</p>
                         ";
                         var msg = MailHelper.CreateSingleEmail(from, to, subject, "", htmlContent);
@@ -336,6 +334,10 @@ namespace TambayanCafeSystem.Controllers
                         Console.WriteLine($"[SENDGRID ERROR] Failed to send welcome email: {ex.Message}");
                     }
                 }
+                else
+                {
+                    Console.WriteLine("[SENDGRID] API key missing — skipping email");
+                }
 
                 return CreatedAtAction(nameof(Get), new { id = createdUser.Id }, new
                 {
@@ -343,7 +345,6 @@ namespace TambayanCafeSystem.Controllers
                     username = createdUser.Username,
                     email = createdUser.Email,
                     role = createdUser.Role
-                    // Note: 'name' is not stored, so not returned
                 });
 
             }
