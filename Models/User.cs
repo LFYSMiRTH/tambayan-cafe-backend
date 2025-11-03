@@ -10,6 +10,9 @@ namespace TambayanCafeAPI.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; set; }
 
+        [BsonElement("name")]           
+        public string? Name { get; set; } 
+
         [BsonElement("username")]
         public string Username { get; set; }
 
@@ -20,7 +23,10 @@ namespace TambayanCafeAPI.Models
         public string Password { get; set; }
 
         [BsonElement("role")]
-        public string Role { get; set; } = "customer"; // Default role
+        public string Role { get; set; } = "customer";
+
+        [BsonElement("isActive")]
+        public bool IsActive { get; set; } = true;
 
         [BsonElement("resetCode")]
         public string? ResetCode { get; set; }

@@ -1,4 +1,5 @@
-﻿using MongoDB.Driver;
+﻿using MongoDB.Bson;
+using MongoDB.Driver;
 using TambayanCafeAPI.Models;
 using System;
 using System.Collections.Generic;
@@ -8,12 +9,20 @@ namespace TambayanCafeSystem.Services
     public class UserService
     {
         private readonly IMongoCollection<User> _users;
+
         public UserService(IMongoDatabase database)
         {
             _users = database.GetCollection<User>("users");
         }
 
         public List<User> Get() => _users.Find(user => true).ToList();
+
+        public User Get(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id) || !ObjectId.TryParse(id, out _))
+                return null;
+            return _users.Find(user => user.Id == id).FirstOrDefault();
+        }
 
         public User Create(User user)
         {
@@ -31,8 +40,7 @@ namespace TambayanCafeSystem.Services
         {
             var update = Builders<User>.Update
                 .Set(u => u.ResetCode, code)
-                .Set(u => u.ResetCodeExpiry, DateTime.UtcNow.AddMinutes(10)); 
-
+                .Set(u => u.ResetCodeExpiry, DateTime.UtcNow.AddMinutes(10));
             _users.UpdateOne(u => u.Email == email, update);
         }
 
@@ -40,11 +48,7 @@ namespace TambayanCafeSystem.Services
         {
             var user = _users.Find(u => u.Email == email).FirstOrDefault();
             if (user == null) return false;
-
-            if (user.ResetCode == code && user.ResetCodeExpiry > DateTime.UtcNow)
-                return true;
-
-            return false;
+            return user.ResetCode == code && user.ResetCodeExpiry > DateTime.UtcNow;
         }
 
         public bool ResetPassword(string email, string newPassword)
@@ -59,6 +63,29 @@ namespace TambayanCafeSystem.Services
 
             _users.UpdateOne(u => u.Email == email, update);
             return true;
+        }
+
+        public void Update(string id, User updatedUser)
+        {
+            if (string.IsNullOrWhiteSpace(id) || updatedUser == null)
+                return;
+
+            if (!ObjectId.TryParse(id, out _))
+                return;
+
+            updatedUser.Id = id;
+            _users.ReplaceOne(u => u.Id == id, updatedUser);
+        }
+
+        public void Remove(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+                return;
+
+            if (!ObjectId.TryParse(id, out _))
+                return;
+
+            _users.DeleteOne(u => u.Id == id);
         }
     }
 }

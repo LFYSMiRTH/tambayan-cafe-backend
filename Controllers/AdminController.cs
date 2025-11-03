@@ -15,20 +15,20 @@ namespace TambayanCafeSystem.Controllers
         private readonly ProductService _productService;
         private readonly InventoryService _inventoryService;
         private readonly SupplierService _supplierService;
-        private readonly UserService _userService; 
+        private readonly UserService _userService;
 
         public AdminController(
             OrderService orderService,
             ProductService productService,
             InventoryService inventoryService,
             SupplierService supplierService,
-            UserService userService) 
+            UserService userService)
         {
             _orderService = orderService;
             _productService = productService;
             _inventoryService = inventoryService;
             _supplierService = supplierService;
-            _userService = userService; // ← Added
+            _userService = userService;
         }
 
         [HttpGet("dashboard")]
@@ -208,10 +208,119 @@ namespace TambayanCafeSystem.Controllers
         [HttpGet("customers")]
         public ActionResult<List<User>> GetAllCustomers()
         {
-
             return Ok(_userService.Get());
         }
 
+        [HttpPut("users/{id}")]
+        public IActionResult UpdateUser(string id, [FromBody] UpdateUserDto updateDto)
+        {
+            if (!ObjectId.TryParse(id, out _))
+                return BadRequest("Invalid user ID format.");
+
+            var existingUser = _userService.Get(id);
+            if (existingUser == null)
+                return NotFound("User not found.");
+
+            existingUser.Name = !string.IsNullOrWhiteSpace(updateDto.Name) ? updateDto.Name.Trim() : existingUser.Name;
+            existingUser.Email = !string.IsNullOrWhiteSpace(updateDto.Email) ? updateDto.Email.Trim() : existingUser.Email;
+
+            if (updateDto.Role == "admin" || updateDto.Role == "staff")
+                existingUser.Role = updateDto.Role;
+
+            existingUser.IsActive = updateDto.IsActive;
+
+            _userService.Update(id, existingUser);
+            return Ok(existingUser);
+        }
+
+        // 👇 DELETE USER
+        [HttpDelete("users/{id}")]
+        public IActionResult DeleteUser(string id)
+        {
+            if (!ObjectId.TryParse(id, out _))
+                return BadRequest("Invalid user ID format.");
+
+            var user = _userService.Get(id);
+            if (user == null)
+                return NotFound("User not found.");
+
+            _userService.Remove(id);
+            return Ok(new { message = "User deleted successfully." });
+        }
+
+        [HttpPost("users/{id}/reset-password")]
+        public async Task<IActionResult> ResetUserPassword(string id)
+        {
+            var user = _userService.Get(id);
+            if (user == null)
+                return NotFound("User not found.");
+
+            string GenerateStrongPassword()
+            {
+                const string upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+                const string lower = "abcdefghijklmnopqrstuvwxyz";
+                const string digits = "0123456789";
+                const string symbols = "!@#$%^&*";
+                var all = upper + lower + digits + symbols;
+                var rng = new Random();
+                var password = new char[12];
+                password[0] = upper[rng.Next(upper.Length)];
+                password[1] = lower[rng.Next(lower.Length)];
+                password[2] = digits[rng.Next(digits.Length)];
+                password[3] = symbols[rng.Next(symbols.Length)];
+                for (int i = 4; i < 12; i++)
+                    password[i] = all[rng.Next(all.Length)];
+                return new string(password.OrderBy(_ => Guid.NewGuid()).ToArray());
+            }
+
+            var newPassword = GenerateStrongPassword();
+            user.Password = newPassword;
+            _userService.Update(id, user);
+
+            var apiKey = Environment.GetEnvironmentVariable("SENDGRID_API_KEY");
+            if (!string.IsNullOrEmpty(apiKey))
+            {
+                try
+                {
+                    var client = new SendGrid.SendGridClient(apiKey);
+                    var from = new SendGrid.Helpers.Mail.EmailAddress("johntimothyyanto@gmail.com", "TBYN Café Admin");
+                    var to = new SendGrid.Helpers.Mail.EmailAddress(user.Email);
+                    var subject = "Your Password Has Been Reset";
+                    var htmlContent = $@"
+                        <p>Hello {user.Username},</p>
+                        <p>An administrator has reset your password.</p>
+                        <p><strong>New temporary password:</strong> {newPassword}</p>
+                        <p>Please log in and change it immediately.</p>
+                        <p><a href='https://my-frontend-app-eight.vercel.app/login' style='color:#2ECC71;'>Go to Login</a></p>";
+                    var msg = SendGrid.Helpers.Mail.MailHelper.CreateSingleEmail(from, to, subject, "", htmlContent);
+                    await client.SendEmailAsync(msg);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[SENDGRID] Failed to send password reset email: {ex.Message}");
+                }
+            }
+
+            return Ok(new { message = "Password reset email sent." });
+        }
+
+        [HttpPut("customers/{id}/status")]
+        public IActionResult UpdateCustomerStatus(string id, [FromBody] CustomerStatusDto statusDto)
+        {
+            if (!ObjectId.TryParse(id, out _))
+                return BadRequest("Invalid customer ID.");
+
+            var customer = _userService.Get(id);
+            if (customer == null)
+                return NotFound("Customer not found.");
+
+            if (customer.Role != "customer")
+                return BadRequest("Only customers can be blocked/unblocked.");
+
+            customer.IsActive = statusDto.IsActive;
+            _userService.Update(id, customer);
+            return Ok(new { message = $"Customer is now {(statusDto.IsActive ? "active" : "blocked")}." });
+        }
 
         private bool IsStrongPassword(string password)
         {
@@ -225,5 +334,18 @@ namespace TambayanCafeSystem.Controllers
 
             return hasUpper && hasLower && hasDigit && hasSpecial;
         }
+    }
+
+    public class UpdateUserDto
+    {
+        public string? Name { get; set; }
+        public string? Email { get; set; }
+        public string? Role { get; set; }
+        public bool IsActive { get; set; }
+    }
+
+    public class CustomerStatusDto
+    {
+        public bool IsActive { get; set; }
     }
 }
