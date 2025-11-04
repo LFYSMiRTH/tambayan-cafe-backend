@@ -1,5 +1,4 @@
-﻿// Models/Order.cs
-using MongoDB.Bson;
+﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System;
 using System.Collections.Generic;
@@ -14,6 +13,9 @@ namespace TambayanCafeAPI.Models
 
         [BsonElement("userId")]
         public string UserId { get; set; } = string.Empty;
+
+        [BsonElement("customerId")]
+        public string CustomerId { get; set; } = string.Empty;
 
         [BsonElement("customerEmail")]
         public string CustomerEmail { get; set; } = string.Empty;
@@ -30,7 +32,7 @@ namespace TambayanCafeAPI.Models
         [BsonElement("createdAt")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        [BsonIgnore] 
+        [BsonIgnore]
         public string Status => IsCompleted ? "Completed" : "Pending";
     }
 }

@@ -7,7 +7,7 @@ using TambayanCafeAPI.Models;
 
 namespace TambayanCafeAPI.Services
 {
-    public class OrderService
+    public class OrderService : IOrderService
     {
         private readonly IMongoCollection<Order> _orders;
         private readonly ProductService _productService;
@@ -154,6 +154,23 @@ namespace TambayanCafeAPI.Services
                 TotalRevenue = revenue,
                 TotalExpenses = revenue * 0.4m
             };
+        }
+
+        public async Task<List<Order>> GetOrdersByCustomerIdAsync(string customerId, int limit = 3, string status = null)
+        {
+            var filter = Builders<Order>.Filter.Eq(o => o.CustomerId, customerId);
+            if (!string.IsNullOrEmpty(status))
+            {
+                var statuses = status.Split(',');
+                var statusFilters = statuses.Select(s => Builders<Order>.Filter.Eq(o => o.Status, s.Trim())).ToList();
+                var combinedStatusFilter = Builders<Order>.Filter.Or(statusFilters);
+                filter = Builders<Order>.Filter.And(filter, combinedStatusFilter);
+            }
+            return await _orders
+                .Find(filter)
+                .SortByDescending(o => o.CreatedAt)
+                .Limit(limit)
+                .ToListAsync();
         }
     }
 }

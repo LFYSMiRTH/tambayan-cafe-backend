@@ -1,10 +1,13 @@
 ﻿using MongoDB.Driver;
 using TambayanCafeAPI.Models;
 using MongoDB.Bson;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Linq;
 
 namespace TambayanCafeAPI.Services
 {
-    public class ProductService
+    public class ProductService : IMenuItemService
     {
         private readonly IMongoCollection<Product> _products;
 
@@ -30,7 +33,7 @@ namespace TambayanCafeAPI.Services
                 .Set("lowStockThreshold", product.LowStockThreshold)
                 .Set("category", product.Category ?? "")
                 .Set("isAvailable", product.IsAvailable)
-                .Set("ingredients", product.Ingredients); 
+                .Set("ingredients", product.Ingredients);
 
             _products.UpdateOne(filter, update);
         }
@@ -46,5 +49,17 @@ namespace TambayanCafeAPI.Services
 
         public long GetLowStockCount() =>
             _products.CountDocuments(p => p.StockQuantity <= (p.LowStockThreshold > 0 ? p.LowStockThreshold : 5));
+
+        // ===== NEW: Required for Customer Dashboard =====
+        public async Task<List<Product>> GetTopSellingMenuItemsAsync(int limit = 5)
+        {
+            // Note: This is a simplified version.
+            // In a real app, you'd join with OrderItems to get actual sales count.
+            // For now, we return the first N products as "favorites".
+            return await _products
+                .Find(_ => true)
+                .Limit(limit)
+                .ToListAsync();
+        }
     }
 }

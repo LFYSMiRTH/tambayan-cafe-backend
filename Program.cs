@@ -29,10 +29,16 @@ builder.Services.AddSingleton<IMongoDatabase>(sp =>
     return client.GetDatabase(databaseName);
 });
 
+// ✅ Register services with consistent namespace (TambayanCafeAPI.Services)
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<IMenuItemService, ProductService>();
+
+// Keep your existing singleton registrations (they work, but scoped is safer for DB services)
+builder.Services.AddSingleton<UserService>();
 builder.Services.AddSingleton<ProductService>();
 builder.Services.AddSingleton<InventoryService>();
 builder.Services.AddSingleton<SupplierService>();
-builder.Services.AddSingleton<UserService>();
 
 builder.Services.AddSingleton<OrderService>(sp =>
 {

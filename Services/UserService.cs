@@ -3,10 +3,11 @@ using MongoDB.Driver;
 using TambayanCafeAPI.Models;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
-namespace TambayanCafeSystem.Services
+namespace TambayanCafeAPI.Services
 {
-    public class UserService
+    public class UserService : IUserService
     {
         private readonly IMongoCollection<User> _users;
 
@@ -86,6 +87,13 @@ namespace TambayanCafeSystem.Services
                 return;
 
             _users.DeleteOne(u => u.Id == id);
+        }
+
+        public async Task<User> GetUserByIdAsync(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id) || !ObjectId.TryParse(id, out _))
+                return null;
+            return await _users.Find(user => user.Id == id).FirstOrDefaultAsync();
         }
     }
 }
