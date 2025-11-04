@@ -33,6 +33,7 @@ namespace TambayanCafeAPI.Services
                 .Set("lowStockThreshold", product.LowStockThreshold)
                 .Set("category", product.Category ?? "")
                 .Set("isAvailable", product.IsAvailable)
+                .Set("imageUrl", product.ImageUrl ?? "")
                 .Set("ingredients", product.Ingredients);
 
             _products.UpdateOne(filter, update);
