@@ -31,9 +31,18 @@ namespace TambayanCafeSystem.Controllers
             _userService = userService;
         }
 
+        private bool IsAdmin()
+        {
+            var role = User.FindFirst("role")?.Value;
+            return role == "admin";
+        }
+
         [HttpGet("dashboard")]
         public ActionResult<DashboardMetricsDto> GetDashboardMetrics()
         {
+            if (!IsAdmin())
+                return Unauthorized(new { error = "Admin access required" });
+
             return Ok(new DashboardMetricsDto
             {
                 TotalOrders = (int)_orderService.GetTotalCount(),
@@ -46,12 +55,18 @@ namespace TambayanCafeSystem.Controllers
         [HttpGet("menu")]
         public ActionResult<List<Product>> GetAllMenuItems()
         {
+            if (!IsAdmin())
+                return Unauthorized(new { error = "Admin access required" });
+
             return Ok(_productService.GetAll());
         }
 
         [HttpPost("menu")]
         public ActionResult<Product> AddMenuItem([FromBody] Product item)
         {
+            if (!IsAdmin())
+                return Unauthorized(new { error = "Admin access required" });
+
             if (string.IsNullOrWhiteSpace(item.Name))
                 return BadRequest("Item name is required.");
             if (item.Price < 0)
@@ -66,6 +81,9 @@ namespace TambayanCafeSystem.Controllers
         [HttpPut("menu/{id}")]
         public IActionResult UpdateMenuItem(string id, [FromBody] Product updatedItem)
         {
+            if (!IsAdmin())
+                return Unauthorized(new { error = "Admin access required" });
+
             if (!ObjectId.TryParse(id, out _))
                 return BadRequest("Invalid ID format.");
             if (string.IsNullOrWhiteSpace(updatedItem.Name))
@@ -78,6 +96,9 @@ namespace TambayanCafeSystem.Controllers
         [HttpDelete("menu/{id}")]
         public IActionResult DeleteMenuItem(string id)
         {
+            if (!IsAdmin())
+                return Unauthorized(new { error = "Admin access required" });
+
             if (!ObjectId.TryParse(id, out _))
                 return BadRequest("Invalid ID format.");
 
@@ -88,12 +109,18 @@ namespace TambayanCafeSystem.Controllers
         [HttpGet("inventory")]
         public ActionResult<List<InventoryItem>> GetInventory()
         {
+            if (!IsAdmin())
+                return Unauthorized(new { error = "Admin access required" });
+
             return Ok(_inventoryService.GetAll());
         }
 
         [HttpPost("inventory")]
         public IActionResult AddInventoryItem([FromBody] InventoryItem item)
         {
+            if (!IsAdmin())
+                return Unauthorized(new { error = "Admin access required" });
+
             if (string.IsNullOrWhiteSpace(item?.Name))
                 return BadRequest("Ingredient name is required.");
             if (item.CurrentStock < 0 || item.ReorderLevel < 0)
@@ -106,12 +133,18 @@ namespace TambayanCafeSystem.Controllers
         [HttpGet("suppliers")]
         public ActionResult<List<Supplier>> GetSuppliers()
         {
+            if (!IsAdmin())
+                return Unauthorized(new { error = "Admin access required" });
+
             return Ok(_supplierService.GetAll());
         }
 
         [HttpPost("suppliers")]
         public ActionResult<Supplier> AddSupplier([FromBody] Supplier supplier)
         {
+            if (!IsAdmin())
+                return Unauthorized(new { error = "Admin access required" });
+
             if (string.IsNullOrWhiteSpace(supplier.Name) || string.IsNullOrWhiteSpace(supplier.Email))
                 return BadRequest("Name and Email are required.");
 
@@ -122,6 +155,9 @@ namespace TambayanCafeSystem.Controllers
         [HttpPut("suppliers/{id}")]
         public IActionResult UpdateSupplier(string id, [FromBody] Supplier supplier)
         {
+            if (!IsAdmin())
+                return Unauthorized(new { error = "Admin access required" });
+
             if (!ObjectId.TryParse(id, out _))
                 return BadRequest("Invalid ID format.");
             if (string.IsNullOrWhiteSpace(supplier.Name) || string.IsNullOrWhiteSpace(supplier.Email))
@@ -134,6 +170,9 @@ namespace TambayanCafeSystem.Controllers
         [HttpGet("menu/{id}/ingredients")]
         public ActionResult<List<MenuItemIngredient>> GetMenuItemIngredients(string id)
         {
+            if (!IsAdmin())
+                return Unauthorized(new { error = "Admin access required" });
+
             if (!ObjectId.TryParse(id, out _))
                 return BadRequest("Invalid ID format.");
 
@@ -147,6 +186,9 @@ namespace TambayanCafeSystem.Controllers
         [HttpPut("menu/{id}/ingredients")]
         public IActionResult UpdateMenuItemIngredients(string id, [FromBody] List<MenuItemIngredient> ingredients)
         {
+            if (!IsAdmin())
+                return Unauthorized(new { error = "Admin access required" });
+
             if (!ObjectId.TryParse(id, out _))
                 return BadRequest("Invalid ID format.");
 
@@ -172,12 +214,18 @@ namespace TambayanCafeSystem.Controllers
         [HttpGet("users")]
         public ActionResult<List<User>> GetAllUsers()
         {
+            if (!IsAdmin())
+                return Unauthorized(new { error = "Admin access required" });
+
             return Ok(_userService.Get());
         }
 
         [HttpPost("users")]
         public IActionResult CreateUser([FromBody] User user)
         {
+            if (!IsAdmin())
+                return Unauthorized(new { error = "Admin access required" });
+
             if (user == null)
                 return BadRequest("User data is required.");
 
@@ -208,12 +256,18 @@ namespace TambayanCafeSystem.Controllers
         [HttpGet("customers")]
         public ActionResult<List<User>> GetAllCustomers()
         {
+            if (!IsAdmin())
+                return Unauthorized(new { error = "Admin access required" });
+
             return Ok(_userService.Get());
         }
 
         [HttpPut("users/{id}")]
         public IActionResult UpdateUser(string id, [FromBody] UpdateUserDto updateDto)
         {
+            if (!IsAdmin())
+                return Unauthorized(new { error = "Admin access required" });
+
             if (!ObjectId.TryParse(id, out _))
                 return BadRequest("Invalid user ID format.");
 
@@ -233,10 +287,12 @@ namespace TambayanCafeSystem.Controllers
             return Ok(existingUser);
         }
 
-        // 👇 DELETE USER
         [HttpDelete("users/{id}")]
         public IActionResult DeleteUser(string id)
         {
+            if (!IsAdmin())
+                return Unauthorized(new { error = "Admin access required" });
+
             if (!ObjectId.TryParse(id, out _))
                 return BadRequest("Invalid user ID format.");
 
@@ -251,6 +307,9 @@ namespace TambayanCafeSystem.Controllers
         [HttpPost("users/{id}/reset-password")]
         public async Task<IActionResult> ResetUserPassword(string id)
         {
+            if (!IsAdmin())
+                return Unauthorized(new { error = "Admin access required" });
+
             var user = _userService.Get(id);
             if (user == null)
                 return NotFound("User not found.");
@@ -307,6 +366,9 @@ namespace TambayanCafeSystem.Controllers
         [HttpPut("customers/{id}/status")]
         public IActionResult UpdateCustomerStatus(string id, [FromBody] CustomerStatusDto statusDto)
         {
+            if (!IsAdmin())
+                return Unauthorized(new { error = "Admin access required" });
+
             if (!ObjectId.TryParse(id, out _))
                 return BadRequest("Invalid customer ID.");
 

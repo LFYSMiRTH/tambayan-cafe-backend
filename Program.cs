@@ -29,17 +29,16 @@ builder.Services.AddSingleton<IMongoDatabase>(sp =>
     return client.GetDatabase(databaseName);
 });
 
-// ✅ Core services
+// Scoped services
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IMenuItemService, ProductService>();
 
-// ✅ RESTORED: ProductService singleton for admin dashboard
+// Singletons for admin compatibility
 builder.Services.AddSingleton<ProductService>();
 builder.Services.AddSingleton<InventoryService>();
 builder.Services.AddSingleton<SupplierService>();
 
-// Manual service registrations
 builder.Services.AddSingleton<OrderService>(sp =>
 {
     var db = sp.GetRequiredService<IMongoDatabase>();
@@ -63,7 +62,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
         System.Text.Json.JsonNamingPolicy.CamelCase;
 });
 
-// ✅ CORS: Allow Vercel and local dev
+// CORS — fixed trailing space
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -102,30 +101,38 @@ if (app.Environment.IsDevelopment())
 app.UseCors("AllowFrontend");
 app.UseHttpsRedirection();
 
-// ✅ CUSTOM AUTH MIDDLEWARE: Accepts "Bearer <user-id>"
+// ✅ FIXED AUTH MIDDLEWARE — correct header access
 app.Use(async (context, next) =>
 {
-    var authHeader = context.Request.Headers.Authorization.ToString();
+    // ✅ CORRECT: context.Request.Headers["Authorization"]
+    var authHeader = context.Request.Headers["Authorization"].ToString();
     if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
     {
         var userId = authHeader["Bearer ".Length..].Trim();
         if (!string.IsNullOrEmpty(userId))
         {
-            // Assume customer role from frontend token
-            var claims = new[]
+            try
             {
-                new System.Security.Claims.Claim("id", userId),
-                new System.Security.Claims.Claim("role", "customer")
-            };
-            var identity = new System.Security.Claims.ClaimsIdentity(claims, "api-key");
-            context.User = new System.Security.Claims.ClaimsPrincipal(identity);
+                var userService = context.RequestServices.GetService<UserService>();
+                var user = userService?.Get(userId); // Uses your sync Get(string id)
+                var role = user?.Role ?? "guest";
+
+                var claims = new[]
+                {
+                    new System.Security.Claims.Claim("id", userId),
+                    new System.Security.Claims.Claim("role", role)
+                };
+                var identity = new System.Security.Claims.ClaimsIdentity(claims, "api-key");
+                context.User = new System.Security.Claims.ClaimsPrincipal(identity);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[AUTH] Error loading user {userId}: {ex.Message}");
+            }
         }
     }
     await next();
 });
-
-// ❌ Do NOT use app.UseAuthentication() or app.UseAuthorization()
-//    because we removed [Authorize] and do manual checks
 
 // Global error handler
 app.Use(async (context, next) =>
@@ -147,7 +154,6 @@ app.Use(async (context, next) =>
 
 app.MapControllers();
 
-// Health checks
 app.MapGet("/health", () => "Tambayan Café API is live!");
 app.MapGet("/health/db", async (IMongoDatabase database) =>
 {
