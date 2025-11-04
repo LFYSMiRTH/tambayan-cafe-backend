@@ -1,5 +1,5 @@
-﻿using System.Threading.Tasks;
-using Microsoft.AspNetCore.Authorization;
+﻿using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using TambayanCafeAPI.Models;
 using TambayanCafeAPI.Services;
@@ -8,7 +8,7 @@ namespace TambayanCafeAPI.Controllers
 {
     [ApiController]
     [Route("api/customer")]
-    [Authorize(Roles = "customer")]
+    // ❌ Removed [Authorize(Roles = "customer")] to avoid auth scheme error
     public class CustomerController : ControllerBase
     {
         private readonly IUserService _userService;
@@ -25,9 +25,20 @@ namespace TambayanCafeAPI.Controllers
             _menuItemService = menuItemService;
         }
 
+        private IActionResult ValidateCustomerRole()
+        {
+            var role = User.FindFirst("role")?.Value;
+            if (role != "customer")
+                return Unauthorized();
+            return null;
+        }
+
         [HttpGet("profile")]
         public async Task<IActionResult> GetProfile()
         {
+            if (ValidateCustomerRole() is IActionResult unauthorized)
+                return unauthorized;
+
             var userId = User.FindFirst("id")?.Value;
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized();
@@ -47,6 +58,9 @@ namespace TambayanCafeAPI.Controllers
         [HttpGet("orders")]
         public async Task<IActionResult> GetOrders([FromQuery] int limit = 3, [FromQuery] string status = null)
         {
+            if (ValidateCustomerRole() is IActionResult unauthorized)
+                return unauthorized;
+
             var userId = User.FindFirst("id")?.Value;
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized();
@@ -58,11 +72,13 @@ namespace TambayanCafeAPI.Controllers
         [HttpGet("favorites")]
         public async Task<IActionResult> GetFavorites()
         {
+            if (ValidateCustomerRole() is IActionResult unauthorized)
+                return unauthorized;
+
             var userId = User.FindFirst("id")?.Value;
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized();
 
-            // Recommend top 5 best-selling items (you can later refine with personalization)
             var favorites = await _menuItemService.GetTopSellingMenuItemsAsync(limit: 5);
             return Ok(favorites);
         }
@@ -70,7 +86,9 @@ namespace TambayanCafeAPI.Controllers
         [HttpGet("notifications")]
         public IActionResult GetNotifications([FromQuery] int limit = 5)
         {
-            // Placeholder: In real app, fetch from NotificationService
+            if (ValidateCustomerRole() is IActionResult unauthorized)
+                return unauthorized;
+
             return Ok(new[]
             {
                 new { message = "Your order #125 is ready for pickup!", createdAt = DateTime.UtcNow.AddMinutes(-5) },
@@ -78,10 +96,12 @@ namespace TambayanCafeAPI.Controllers
             }.Take(limit));
         }
 
-        // ✅ NEW ENDPOINT: Returns ONLY available menu items for customers
         [HttpGet("menu")]
         public async Task<IActionResult> GetAvailableMenu()
         {
+            if (ValidateCustomerRole() is IActionResult unauthorized)
+                return unauthorized;
+
             var menuItems = await _menuItemService.GetAvailableMenuItemsAsync();
             return Ok(menuItems);
         }

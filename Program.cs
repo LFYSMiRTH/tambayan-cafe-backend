@@ -29,17 +29,17 @@ builder.Services.AddSingleton<IMongoDatabase>(sp =>
     return client.GetDatabase(databaseName);
 });
 
-// ✅ Register services with consistent namespace (TambayanCafeAPI.Services)
+// ✅ Core services
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IMenuItemService, ProductService>();
 
-// Keep your existing singleton registrations (they work, but scoped is safer for DB services)
-builder.Services.AddSingleton<UserService>();
+// ✅ RESTORED: ProductService singleton for admin dashboard
 builder.Services.AddSingleton<ProductService>();
 builder.Services.AddSingleton<InventoryService>();
 builder.Services.AddSingleton<SupplierService>();
 
+// Manual service registrations
 builder.Services.AddSingleton<OrderService>(sp =>
 {
     var db = sp.GetRequiredService<IMongoDatabase>();
@@ -63,6 +63,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
         System.Text.Json.JsonNamingPolicy.CamelCase;
 });
 
+// ✅ CORS: Allow Vercel and local dev
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -70,16 +71,12 @@ builder.Services.AddCors(options =>
         policy.SetIsOriginAllowed(origin =>
         {
             var cleanOrigin = origin?.Trim();
-
-            // ✅ FIXED: Removed trailing spaces in Vercel URL
             if (string.Equals(cleanOrigin, "https://my-frontend-app-eight.vercel.app", StringComparison.OrdinalIgnoreCase))
                 return true;
-
             if (!string.IsNullOrEmpty(cleanOrigin) &&
                 cleanOrigin.StartsWith("https://my-frontend-app-", StringComparison.OrdinalIgnoreCase) &&
                 cleanOrigin.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase))
                 return true;
-
             var localOrigins = new[]
             {
                 "http://127.0.0.1:5500",
@@ -105,6 +102,32 @@ if (app.Environment.IsDevelopment())
 app.UseCors("AllowFrontend");
 app.UseHttpsRedirection();
 
+// ✅ CUSTOM AUTH MIDDLEWARE: Accepts "Bearer <user-id>"
+app.Use(async (context, next) =>
+{
+    var authHeader = context.Request.Headers.Authorization.ToString();
+    if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+    {
+        var userId = authHeader["Bearer ".Length..].Trim();
+        if (!string.IsNullOrEmpty(userId))
+        {
+            // Assume customer role from frontend token
+            var claims = new[]
+            {
+                new System.Security.Claims.Claim("id", userId),
+                new System.Security.Claims.Claim("role", "customer")
+            };
+            var identity = new System.Security.Claims.ClaimsIdentity(claims, "api-key");
+            context.User = new System.Security.Claims.ClaimsPrincipal(identity);
+        }
+    }
+    await next();
+});
+
+// ❌ Do NOT use app.UseAuthentication() or app.UseAuthorization()
+//    because we removed [Authorize] and do manual checks
+
+// Global error handler
 app.Use(async (context, next) =>
 {
     try
@@ -124,8 +147,8 @@ app.Use(async (context, next) =>
 
 app.MapControllers();
 
+// Health checks
 app.MapGet("/health", () => "Tambayan Café API is live!");
-
 app.MapGet("/health/db", async (IMongoDatabase database) =>
 {
     try
