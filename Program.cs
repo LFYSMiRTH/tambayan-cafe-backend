@@ -29,24 +29,19 @@ builder.Services.AddSingleton<IMongoDatabase>(sp =>
     return client.GetDatabase(databaseName);
 });
 
-// Scoped services
+// ✅ Register CONCRETE SERVICES as Scoped (for AdminController)
+builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<ProductService>();
+builder.Services.AddScoped<InventoryService>();
+builder.Services.AddScoped<SupplierService>();
+builder.Services.AddScoped<OrderService>();
+
+// ✅ Register INTERFACES (for CustomerController and DI consistency)
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IMenuItemService, ProductService>();
 
-// Singletons for admin compatibility
-builder.Services.AddSingleton<ProductService>();
-builder.Services.AddSingleton<InventoryService>();
-builder.Services.AddSingleton<SupplierService>();
-
-builder.Services.AddSingleton<OrderService>(sp =>
-{
-    var db = sp.GetRequiredService<IMongoDatabase>();
-    var productService = sp.GetRequiredService<ProductService>();
-    var inventoryService = sp.GetRequiredService<InventoryService>();
-    return new OrderService(db, productService, inventoryService);
-});
-
+// ✅ Register IReportService as Singleton (depends on other services)
 builder.Services.AddSingleton<IReportService>(sp =>
 {
     var orderService = sp.GetRequiredService<OrderService>();
@@ -62,7 +57,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
         System.Text.Json.JsonNamingPolicy.CamelCase;
 });
 
-// CORS — fixed trailing space
+// ✅ CORS — FIXED: removed trailing space in Vercel URL
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -70,6 +65,7 @@ builder.Services.AddCors(options =>
         policy.SetIsOriginAllowed(origin =>
         {
             var cleanOrigin = origin?.Trim();
+            // ✅ Removed extra spaces
             if (string.Equals(cleanOrigin, "https://my-frontend-app-eight.vercel.app", StringComparison.OrdinalIgnoreCase))
                 return true;
             if (!string.IsNullOrEmpty(cleanOrigin) &&
@@ -101,10 +97,9 @@ if (app.Environment.IsDevelopment())
 app.UseCors("AllowFrontend");
 app.UseHttpsRedirection();
 
-// ✅ FIXED AUTH MIDDLEWARE — correct header access
+// ✅ AUTH MIDDLEWARE — uses scoped UserService and correct header syntax
 app.Use(async (context, next) =>
 {
-    // ✅ CORRECT: context.Request.Headers["Authorization"]
     var authHeader = context.Request.Headers["Authorization"].ToString();
     if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
     {
@@ -113,6 +108,7 @@ app.Use(async (context, next) =>
         {
             try
             {
+                // Resolve the Scoped UserService
                 var userService = context.RequestServices.GetService<UserService>();
                 var user = userService?.Get(userId); // Uses your sync Get(string id)
                 var role = user?.Role ?? "guest";
@@ -154,6 +150,7 @@ app.Use(async (context, next) =>
 
 app.MapControllers();
 
+// Health endpoints
 app.MapGet("/health", () => "Tambayan Café API is live!");
 app.MapGet("/health/db", async (IMongoDatabase database) =>
 {
