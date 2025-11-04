@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TambayanCafeAPI.Models;
 using TambayanCafeAPI.Services;
-using TambayanCafeSystem.Services;
 
 namespace TambayanCafeAPI.Controllers
 {
@@ -77,6 +76,14 @@ namespace TambayanCafeAPI.Controllers
                 new { message = "Your order #125 is ready for pickup!", createdAt = DateTime.UtcNow.AddMinutes(-5) },
                 new { message = "Weekend promo: 10% off all drinks!", createdAt = DateTime.UtcNow.AddHours(-2) }
             }.Take(limit));
+        }
+
+        // ✅ NEW ENDPOINT: Returns ONLY available menu items for customers
+        [HttpGet("menu")]
+        public async Task<IActionResult> GetAvailableMenu()
+        {
+            var menuItems = await _menuItemService.GetAvailableMenuItemsAsync();
+            return Ok(menuItems);
         }
     }
 }

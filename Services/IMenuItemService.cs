@@ -7,5 +7,7 @@ namespace TambayanCafeAPI.Services
     public interface IMenuItemService
     {
         Task<List<Product>> GetTopSellingMenuItemsAsync(int limit = 5);
+
+        Task<List<Product>> GetAvailableMenuItemsAsync();
     }
 }
