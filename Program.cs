@@ -8,7 +8,15 @@ System.Net.ServicePointManager.SecurityProtocol =
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+// ✅ FIXED: Configure JSON serialization for MVC controllers to use camelCase
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy =
+            System.Text.Json.JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.WriteIndented = false;
+    });
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -41,7 +49,7 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IMenuItemService, ProductService>();
 
-// ✅ Register IReportService as Singleton (depends on other services)
+// ✅ Register IReportService as Singleton
 builder.Services.AddSingleton<IReportService>(sp =>
 {
     var orderService = sp.GetRequiredService<OrderService>();
@@ -51,11 +59,7 @@ builder.Services.AddSingleton<IReportService>(sp =>
     return new ReportService(orderService, inventoryService, productService, database);
 });
 
-builder.Services.ConfigureHttpJsonOptions(options =>
-{
-    options.SerializerOptions.PropertyNamingPolicy =
-        System.Text.Json.JsonNamingPolicy.CamelCase;
-});
+// ✅ REMOVED: ConfigureHttpJsonOptions — it doesn't affect AddControllers()
 
 // ✅ CORS — FIXED: removed trailing space in Vercel URL
 builder.Services.AddCors(options =>
@@ -65,7 +69,7 @@ builder.Services.AddCors(options =>
         policy.SetIsOriginAllowed(origin =>
         {
             var cleanOrigin = origin?.Trim();
-            // ✅ Removed extra spaces
+            // ✅ Fixed: removed extra spaces in hardcoded URL
             if (string.Equals(cleanOrigin, "https://my-frontend-app-eight.vercel.app", StringComparison.OrdinalIgnoreCase))
                 return true;
             if (!string.IsNullOrEmpty(cleanOrigin) &&
@@ -97,7 +101,7 @@ if (app.Environment.IsDevelopment())
 app.UseCors("AllowFrontend");
 app.UseHttpsRedirection();
 
-// ✅ AUTH MIDDLEWARE — uses scoped UserService and correct header syntax
+// ✅ AUTH MIDDLEWARE
 app.Use(async (context, next) =>
 {
     var authHeader = context.Request.Headers["Authorization"].ToString();
@@ -108,9 +112,8 @@ app.Use(async (context, next) =>
         {
             try
             {
-                // Resolve the Scoped UserService
                 var userService = context.RequestServices.GetService<UserService>();
-                var user = userService?.Get(userId); // Uses your sync Get(string id)
+                var user = userService?.Get(userId);
                 var role = user?.Role ?? "guest";
 
                 var claims = new[]

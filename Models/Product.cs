@@ -1,4 +1,5 @@
-﻿using MongoDB.Bson;
+﻿// Models/Product.cs — FULL CODE
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System.Collections.Generic;
 
@@ -30,6 +31,25 @@ namespace TambayanCafeAPI.Models
 
         [BsonElement("imageUrl")]
         public string? ImageUrl { get; set; }
+
+        // ===== CUSTOMIZATION OPTIONS =====
+        [BsonElement("hasSizes")]
+        public bool HasSizes { get; set; } = false;
+
+        [BsonElement("sizes")]
+        public List<string> Sizes { get; set; } = new List<string> { "S", "M", "L" };
+
+        [BsonElement("hasMoods")]
+        public bool HasMoods { get; set; } = false;
+
+        [BsonElement("moods")]
+        public List<string> Moods { get; set; } = new List<string> { "Hot", "Ice" };
+
+        [BsonElement("hasSugarLevels")]
+        public bool HasSugarLevels { get; set; } = false;
+
+        [BsonElement("sugarLevels")]
+        public List<int> SugarLevels { get; set; } = new List<int> { 30, 50, 70 };
 
         [BsonElement("ingredients")]
         public List<MenuItemIngredient> Ingredients { get; set; } = new List<MenuItemIngredient>();
