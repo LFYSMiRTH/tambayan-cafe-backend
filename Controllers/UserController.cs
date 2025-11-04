@@ -1,5 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using TambayanCafeSystem.Services;
+using TambayanCafeAPI.Services; 
 using System;
 using System.Linq;
 using System.Text.Json;
@@ -8,7 +8,7 @@ using SendGrid;
 using SendGrid.Helpers.Mail;
 using System.Text.RegularExpressions;
 
-namespace TambayanCafeSystem.Controllers
+namespace TambayanCafeAPI.Controllers 
 {
     [ApiController]
     [Route("api/[controller]")]
@@ -60,9 +60,8 @@ namespace TambayanCafeSystem.Controllers
                 return Conflict(new { error = "EmailExists", message = "Email already registered." });
             }
 
-            // ✅ CRITICAL: Public signup = customer ONLY
             user.Id = null;
-            user.Role = "customer"; // ← Enforced
+            user.Role = "customer"; 
             var createdUser = _userService.Create(user);
             return Ok(new { message = "User created successfully", user = createdUser });
         }
@@ -76,13 +75,12 @@ namespace TambayanCafeSystem.Controllers
                 return Unauthorized(new { error = "InvalidCredentials", message = "Invalid username or password" });
             }
 
-            // ✅ Return role so frontend can redirect correctly
             return Ok(new
             {
                 id = user.Id,
                 username = user.Username,
                 email = user.Email,
-                role = user.Role // "customer" or "staff"
+                role = user.Role 
             });
         }
 
