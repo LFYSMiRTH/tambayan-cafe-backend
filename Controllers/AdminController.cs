@@ -74,24 +74,6 @@ namespace TambayanCafeSystem.Controllers
             if (item.StockQuantity < 0)
                 return BadRequest("Stock quantity cannot be negative.");
 
-            // ✅ AUTO-ENABLE CUSTOMIZATIONS FOR DRINKS
-            if (item.Category?.Equals("Drinks", StringComparison.OrdinalIgnoreCase) == true)
-            {
-                item.HasMoods = true;
-                item.Moods = new List<string> { "Hot", "Ice" };
-                item.HasSizes = true;
-                item.Sizes = new List<string> { "S", "M", "L" };
-                item.HasSugarLevels = true;
-                item.SugarLevels = new List<int> { 30, 50, 70 };
-            }
-            // Optional: disable for non-drinks (not required if defaults are false)
-            else
-            {
-                item.HasMoods = false;
-                item.HasSizes = false;
-                item.HasSugarLevels = false;
-            }
-
             _productService.Create(item);
             return Ok(item);
         }
