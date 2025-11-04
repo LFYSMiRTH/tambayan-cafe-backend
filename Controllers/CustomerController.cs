@@ -1,10 +1,9 @@
-﻿using System;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TambayanCafeAPI.Models;
 using TambayanCafeAPI.Services;
+using TambayanCafeSystem.Services;
 
 namespace TambayanCafeAPI.Controllers
 {
@@ -16,18 +15,15 @@ namespace TambayanCafeAPI.Controllers
         private readonly IUserService _userService;
         private readonly IOrderService _orderService;
         private readonly IMenuItemService _menuItemService;
-        private readonly ProductService _productService; // ✅ Added
 
         public CustomerController(
             IUserService userService,
             IOrderService orderService,
-            IMenuItemService menuItemService,
-            ProductService productService) // ✅ Added
+            IMenuItemService menuItemService)
         {
             _userService = userService;
             _orderService = orderService;
             _menuItemService = menuItemService;
-            _productService = productService; // ✅ Added
         }
 
         [HttpGet("profile")]
@@ -67,21 +63,15 @@ namespace TambayanCafeAPI.Controllers
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized();
 
+            // Recommend top 5 best-selling items (you can later refine with personalization)
             var favorites = await _menuItemService.GetTopSellingMenuItemsAsync(limit: 5);
             return Ok(favorites);
-        }
-
-        // ✅ NEW ENDPOINT: Get full available menu
-        [HttpGet("menu")]
-        public async Task<IActionResult> GetAvailableMenu()
-        {
-            var menuItems = await _productService.GetAvailableMenuItemsAsync();
-            return Ok(menuItems);
         }
 
         [HttpGet("notifications")]
         public IActionResult GetNotifications([FromQuery] int limit = 5)
         {
+            // Placeholder: In real app, fetch from NotificationService
             return Ok(new[]
             {
                 new { message = "Your order #125 is ready for pickup!", createdAt = DateTime.UtcNow.AddMinutes(-5) },
