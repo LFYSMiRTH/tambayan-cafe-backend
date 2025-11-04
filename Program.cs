@@ -29,21 +29,21 @@ builder.Services.AddSingleton<IMongoDatabase>(sp =>
     return client.GetDatabase(databaseName);
 });
 
-// ✅ Register core services
+// ✅ Register services with consistent namespace (TambayanCafeAPI.Services)
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IMenuItemService, ProductService>();
 
-// ❌ REMOVED: builder.Services.AddSingleton<ProductService>(); — avoid duplicate instances
-
-// Keep other singletons that are manually constructed
+// Keep your existing singleton registrations (they work, but scoped is safer for DB services)
+builder.Services.AddSingleton<UserService>();
+builder.Services.AddSingleton<ProductService>();
 builder.Services.AddSingleton<InventoryService>();
 builder.Services.AddSingleton<SupplierService>();
 
 builder.Services.AddSingleton<OrderService>(sp =>
 {
     var db = sp.GetRequiredService<IMongoDatabase>();
-    var productService = sp.GetRequiredService<IMenuItemService>() as ProductService;
+    var productService = sp.GetRequiredService<ProductService>();
     var inventoryService = sp.GetRequiredService<InventoryService>();
     return new OrderService(db, productService, inventoryService);
 });
@@ -52,7 +52,7 @@ builder.Services.AddSingleton<IReportService>(sp =>
 {
     var orderService = sp.GetRequiredService<OrderService>();
     var inventoryService = sp.GetRequiredService<InventoryService>();
-    var productService = sp.GetRequiredService<IMenuItemService>() as ProductService;
+    var productService = sp.GetRequiredService<ProductService>();
     var database = sp.GetRequiredService<IMongoDatabase>();
     return new ReportService(orderService, inventoryService, productService, database);
 });
@@ -70,12 +70,16 @@ builder.Services.AddCors(options =>
         policy.SetIsOriginAllowed(origin =>
         {
             var cleanOrigin = origin?.Trim();
+
+            // ✅ FIXED: Removed trailing spaces in Vercel URL
             if (string.Equals(cleanOrigin, "https://my-frontend-app-eight.vercel.app", StringComparison.OrdinalIgnoreCase))
                 return true;
+
             if (!string.IsNullOrEmpty(cleanOrigin) &&
                 cleanOrigin.StartsWith("https://my-frontend-app-", StringComparison.OrdinalIgnoreCase) &&
                 cleanOrigin.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase))
                 return true;
+
             var localOrigins = new[]
             {
                 "http://127.0.0.1:5500",
@@ -101,28 +105,6 @@ if (app.Environment.IsDevelopment())
 app.UseCors("AllowFrontend");
 app.UseHttpsRedirection();
 
-// ✅ SIMPLE AUTH MIDDLEWARE: Accept Bearer <user-id>
-app.Use(async (context, next) =>
-{
-    var authHeader = context.Request.Headers.Authorization.ToString();
-    if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-    {
-        var userId = authHeader["Bearer ".Length..].Trim();
-        if (!string.IsNullOrEmpty(userId))
-        {
-            var claims = new[]
-            {
-                new System.Security.Claims.Claim("id", userId),
-                new System.Security.Claims.Claim("role", "customer")
-            };
-            var identity = new System.Security.Claims.ClaimsIdentity(claims, "api-key");
-            context.User = new System.Security.Claims.ClaimsPrincipal(identity);
-        }
-    }
-    await next();
-});
-
-// Global error handler (keep as is)
 app.Use(async (context, next) =>
 {
     try
@@ -143,6 +125,7 @@ app.Use(async (context, next) =>
 app.MapControllers();
 
 app.MapGet("/health", () => "Tambayan Café API is live!");
+
 app.MapGet("/health/db", async (IMongoDatabase database) =>
 {
     try
