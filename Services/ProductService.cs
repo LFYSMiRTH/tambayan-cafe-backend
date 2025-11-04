@@ -50,14 +50,19 @@ namespace TambayanCafeAPI.Services
         public long GetLowStockCount() =>
             _products.CountDocuments(p => p.StockQuantity <= (p.LowStockThreshold > 0 ? p.LowStockThreshold : 5));
 
-        // ===== NEW: Required for Customer Dashboard =====
+        // ===== NEW: For Customer Dashboard — Only AVAILABLE items =====
+        public async Task<List<Product>> GetAvailableMenuItemsAsync()
+        {
+            return await _products
+                .Find(p => p.IsAvailable == true)
+                .ToListAsync();
+        }
+
         public async Task<List<Product>> GetTopSellingMenuItemsAsync(int limit = 5)
         {
-            // Note: This is a simplified version.
-            // In a real app, you'd join with OrderItems to get actual sales count.
-            // For now, we return the first N products as "favorites".
+            // Only return available items
             return await _products
-                .Find(_ => true)
+                .Find(p => p.IsAvailable == true)
                 .Limit(limit)
                 .ToListAsync();
         }
