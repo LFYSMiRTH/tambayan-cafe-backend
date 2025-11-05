@@ -35,7 +35,7 @@ namespace TambayanCafeAPI.Controllers
             if (!user.IsActive)
                 return Unauthorized(new { error = "Account is inactive or blocked." });
 
-            // Verify password against BCrypt hash stored in DB
+            // ✅ VERIFY AGAINST BCRYPT HASH
             if (!Tambrypt.Verify(loginDto.Password, user.Password))
                 return Unauthorized(new { error = "Invalid credentials." });
 
@@ -76,7 +76,7 @@ namespace TambayanCafeAPI.Controllers
                     user.Username,
                     user.Name,
                     user.Email,
-                    Role = user.Role.ToLower()
+                    Role = user.Role.ToLowerInvariant() // ✅ CONSISTENT LOWERCASE
                 }
             });
         }
@@ -84,7 +84,7 @@ namespace TambayanCafeAPI.Controllers
 
     public class LoginDto
     {
-        public string Username { get; set; }
-        public string Password { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
     }
 }

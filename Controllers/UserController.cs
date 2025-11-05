@@ -10,9 +10,9 @@ using TambayanCafeAPI.Models;
 using TambayanCafeAPI.Services;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
-using System.Text;
+using System.Security.Claims;
 
-namespace TambayanCafeAPI.Controllers 
+namespace TambayanCafeAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
@@ -64,52 +64,17 @@ namespace TambayanCafeAPI.Controllers
                 return Conflict(new { error = "EmailExists", message = "Email already registered." });
             }
 
+            // ✅ HASH PASSWORD BEFORE SAVING
+            user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
             user.Id = null;
-            user.Role = "customer"; 
+            user.Role = "customer";
             var createdUser = _userService.Create(user);
             return Ok(new { message = "User created successfully", user = createdUser });
         }
 
-        [HttpPost("login")]
-        public IActionResult Login([FromBody] User loginUser)
-        {
-            var user = _userService.GetByUsername(loginUser.Username);
-            if (user == null || user.Password != loginUser.Password)
-            {
-                return Unauthorized(new { error = "InvalidCredentials", message = "Invalid username or password" });
-            }
-
-            // 🔑 Generate JWT
-            var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY")
-                         ?? "ThisIsYourVerySecureSecretKey123!@#";
-            var key = Encoding.UTF8.GetBytes(jwtKey);
-            var tokenHandler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
-            var tokenDescriptor = new SecurityTokenDescriptor
-            {
-                Subject = new System.Security.Claims.ClaimsIdentity(new[]
-                {
-            new System.Security.Claims.Claim("id", user.Id.ToString()),
-            new System.Security.Claims.Claim("role", user.Role),
-            new System.Security.Claims.Claim("username", user.Username),
-            new System.Security.Claims.Claim("email", user.Email)
-        }),
-                Expires = DateTime.UtcNow.AddHours(2),
-                SigningCredentials = new SigningCredentials(
-                    new SymmetricSecurityKey(key),
-                    SecurityAlgorithms.HmacSha256Signature)
-            };
-            var token = tokenHandler.CreateToken(tokenDescriptor);
-            var tokenString = tokenHandler.WriteToken(token);
-
-            return Ok(new
-            {
-                id = user.Id,
-                username = user.Username,
-                email = user.Email,
-                role = user.Role,
-                token = tokenString
-            });
-        }
+        // ❌ REMOVE THIS LOGIN METHOD - USE AuthController INSTEAD
+        // [HttpPost("login")] 
+        // ... (delete entire method)
 
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] JsonElement request)
@@ -235,7 +200,8 @@ namespace TambayanCafeAPI.Controllers
                 return BadRequest(new { error = "InvalidCode", message = "Invalid or expired reset code." });
             }
 
-            bool success = _userService.ResetPassword(email, newPassword);
+            // ✅ HASH NEW PASSWORD
+            bool success = _userService.ResetPassword(email, BCrypt.Net.BCrypt.HashPassword(newPassword));
             if (!success)
             {
                 return NotFound(new { error = "UserNotFound", message = "User not found." });
@@ -244,13 +210,11 @@ namespace TambayanCafeAPI.Controllers
             return Ok(new { message = "Password has been reset successfully" });
         }
 
-        // ✅ NEW ENDPOINT: Create Admin or Staff User (FULLY WORKING)
         [HttpPost("admin/users")]
         public async Task<IActionResult> CreateAdminOrStaffUser([FromBody] JsonElement request)
         {
             try
             {
-                // Parse input
                 if (!request.TryGetProperty("name", out JsonElement nameEl) ||
                     !request.TryGetProperty("email", out JsonElement emailEl) ||
                     !request.TryGetProperty("role", out JsonElement roleEl))
@@ -271,14 +235,13 @@ namespace TambayanCafeAPI.Controllers
                 if (_userService.GetByEmail(email) != null)
                     return Conflict(new { error = "EmailExists", message = "A user with this email already exists." });
 
-                // === Generate username from name ===
                 string GenerateUsername(string name)
                 {
                     var clean = Regex.Replace(name, @"[^a-zA-Z0-9\s]", "");
                     var parts = clean.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
                     var first = parts.FirstOrDefault()?.ToLower() ?? "user";
                     var last = parts.Length > 1 ? parts.Last().ToLower() : "";
-                    var baseName = (first.Substring(0, 1) + last);
+                    var baseName = (first.Substring(0, Math.Min(1, first.Length)) + last);
                     if (string.IsNullOrEmpty(baseName)) baseName = "user";
 
                     int counter = 1;
@@ -291,7 +254,6 @@ namespace TambayanCafeAPI.Controllers
                     return username;
                 }
 
-                // === Generate strong password ===
                 string GenerateStrongPassword()
                 {
                     const string upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -314,21 +276,20 @@ namespace TambayanCafeAPI.Controllers
                 }
 
                 var username = GenerateUsername(fullName);
-                var password = GenerateStrongPassword();
+                var plainPassword = GenerateStrongPassword();
+                var hashedPassword = BCrypt.Net.BCrypt.HashPassword(plainPassword); // ✅ HASH
 
-                // Create user object — matches your User model
                 var newUser = new User
                 {
                     Username = username,
                     Email = email,
-                    Password = password, // plain-text (your current design)
-                    Role = role
+                    Password = hashedPassword, // ✅ STORE HASH
+                    Role = role,
+                    Name = fullName
                 };
 
-                // Save to DB
                 var createdUser = _userService.Create(newUser);
 
-                // === SEND WELCOME EMAIL ===
                 var apiKey = Environment.GetEnvironmentVariable("SENDGRID_API_KEY");
                 if (!string.IsNullOrEmpty(apiKey))
                 {
@@ -344,7 +305,7 @@ namespace TambayanCafeAPI.Controllers
                             <p><strong>Login Details:</strong></p>
                             <ul>
                                 <li><strong>Username:</strong> {username}</li>
-                                <li><strong>Temporary Password:</strong> {password}</li>
+                                <li><strong>Temporary Password:</strong> {plainPassword}</li>
                             </ul>
                             <p>Please log in and change your password immediately:</p>
                             <p><a href='https://my-frontend-app-eight.vercel.app/login' style='color:#2ECC71;'>Go to Login</a></p>
