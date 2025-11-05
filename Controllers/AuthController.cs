@@ -35,11 +35,10 @@ namespace TambayanCafeAPI.Controllers
             if (!user.IsActive)
                 return Unauthorized(new { error = "Account is inactive or blocked." });
 
-            // Verify password (assuming it's hashed with BCrypt)
+            // Verify password against BCrypt hash stored in DB
             if (!Tambrypt.Verify(loginDto.Password, user.Password))
                 return Unauthorized(new { error = "Invalid credentials." });
 
-            // Generate JWT
             var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY")
                          ?? _configuration["Jwt:Key"]
                          ?? "ThisIsYourVerySecureSecretKey123!@#";
@@ -53,7 +52,7 @@ namespace TambayanCafeAPI.Controllers
             {
                 new Claim(ClaimTypes.Name, user.Username),
                 new Claim("id", user.Id),
-                new Claim("role", user.Role.ToLowerInvariant()) // e.g., "admin", "customer"
+                new Claim("role", user.Role.ToLowerInvariant())
             };
 
             var tokenDescriptor = new SecurityTokenDescriptor
