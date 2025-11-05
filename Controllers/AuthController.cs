@@ -76,7 +76,7 @@ namespace TambayanCafeAPI.Controllers
                     user.Username,
                     user.Name,
                     user.Email,
-                    Role = user.Role
+                    Role = user.Role.ToLower()
                 }
             });
         }
