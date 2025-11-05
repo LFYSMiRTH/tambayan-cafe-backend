@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿// DevController.cs
+using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
 using TambayanCafeAPI.Models;
 
@@ -23,11 +24,8 @@ namespace TambayanCafeAPI.Controllers
 
             foreach (var user in all)
             {
-                // Skip if already hashed
-                if (user.Password.StartsWith("$2"))
-                    continue;
+                if (user.Password.StartsWith("$2")) continue; // already hashed
 
-                // Hash plaintext password
                 string hashed = BCrypt.Net.BCrypt.HashPassword(user.Password);
                 await users.UpdateOneAsync(
                     u => u.Id == user.Id,
@@ -35,7 +33,7 @@ namespace TambayanCafeAPI.Controllers
                 );
             }
 
-            return Ok("All passwords hashed.");
+            return Ok("✅ All plaintext passwords have been hashed.");
         }
     }
 }
