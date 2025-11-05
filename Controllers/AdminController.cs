@@ -1,14 +1,16 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Linq;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using TambayanCafeAPI.Models;
 using TambayanCafeAPI.Services;
 using TambayanCafeSystem.Services;
-using System.Linq;
 
 namespace TambayanCafeSystem.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Roles = "admin")]
     public class AdminController : ControllerBase
     {
         private readonly OrderService _orderService;

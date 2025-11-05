@@ -2,12 +2,37 @@
 using MongoDB.Driver;
 using TambayanCafeAPI.Services;
 using TambayanCafeSystem.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 System.Net.ServicePointManager.SecurityProtocol =
     System.Net.SecurityProtocolType.Tls12 | System.Net.SecurityProtocolType.Tls13;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// 🔐 JWT Authentication
+builder.Services.AddAuthentication("Bearer")
+    .AddJwtBearer("Bearer", options =>
+    {
+        var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY")
+                     ?? builder.Configuration["Jwt:Key"]
+                     ?? "ThisIsYourVerySecureSecretKey123!@#";
+        var key = Encoding.UTF8.GetBytes(jwtKey);
+
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "TambayanCafeAPI",
+            ValidAudience = builder.Configuration["Jwt:Audience"] ?? "TambayanCafeClient",
+            IssuerSigningKey = new SymmetricSecurityKey(key)
+        };
+    });
+
+builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -29,19 +54,17 @@ builder.Services.AddSingleton<IMongoDatabase>(sp =>
     return client.GetDatabase(databaseName);
 });
 
-// ✅ Register CONCRETE SERVICES as Scoped (for AdminController)
+// ✅ Register services
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<ProductService>();
 builder.Services.AddScoped<InventoryService>();
 builder.Services.AddScoped<SupplierService>();
 builder.Services.AddScoped<OrderService>();
 
-// ✅ Register INTERFACES (for CustomerController and DI consistency)
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IMenuItemService, ProductService>();
 
-// ✅ Register IReportService as Singleton (depends on other services)
 builder.Services.AddSingleton<IReportService>(sp =>
 {
     var orderService = sp.GetRequiredService<OrderService>();
@@ -57,7 +80,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
         System.Text.Json.JsonNamingPolicy.CamelCase;
 });
 
-// ✅ CORS — FIXED: removed trailing space in Vercel URL
+// ✅ CORRECTED CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -65,7 +88,6 @@ builder.Services.AddCors(options =>
         policy.SetIsOriginAllowed(origin =>
         {
             var cleanOrigin = origin?.Trim();
-            // ✅ Removed extra spaces
             if (string.Equals(cleanOrigin, "https://my-frontend-app-eight.vercel.app", StringComparison.OrdinalIgnoreCase))
                 return true;
             if (!string.IsNullOrEmpty(cleanOrigin) &&
@@ -97,38 +119,8 @@ if (app.Environment.IsDevelopment())
 app.UseCors("AllowFrontend");
 app.UseHttpsRedirection();
 
-// ✅ AUTH MIDDLEWARE — uses scoped UserService and correct header syntax
-app.Use(async (context, next) =>
-{
-    var authHeader = context.Request.Headers["Authorization"].ToString();
-    if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-    {
-        var userId = authHeader["Bearer ".Length..].Trim();
-        if (!string.IsNullOrEmpty(userId))
-        {
-            try
-            {
-                // Resolve the Scoped UserService
-                var userService = context.RequestServices.GetService<UserService>();
-                var user = userService?.Get(userId); // Uses your sync Get(string id)
-                var role = user?.Role ?? "guest";
-
-                var claims = new[]
-                {
-                    new System.Security.Claims.Claim("id", userId),
-                    new System.Security.Claims.Claim("role", role)
-                };
-                var identity = new System.Security.Claims.ClaimsIdentity(claims, "api-key");
-                context.User = new System.Security.Claims.ClaimsPrincipal(identity);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[AUTH] Error loading user {userId}: {ex.Message}");
-            }
-        }
-    }
-    await next();
-});
+app.UseAuthentication();
+app.UseAuthorization();
 
 // Global error handler
 app.Use(async (context, next) =>

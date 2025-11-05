@@ -1,5 +1,6 @@
 ﻿using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TambayanCafeAPI.Models;
 using TambayanCafeAPI.Services;
@@ -8,7 +9,7 @@ namespace TambayanCafeAPI.Controllers
 {
     [ApiController]
     [Route("api/customer")]
-    // ❌ Removed [Authorize(Roles = "customer")] to avoid auth scheme error
+    [Authorize(Roles = "customer")]
     public class CustomerController : ControllerBase
     {
         private readonly IUserService _userService;

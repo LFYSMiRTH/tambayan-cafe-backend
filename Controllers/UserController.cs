@@ -1,12 +1,16 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using TambayanCafeAPI.Services; 
-using System;
+﻿using System;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
-using TambayanCafeAPI.Models;
+using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Mvc;
 using SendGrid;
 using SendGrid.Helpers.Mail;
-using System.Text.RegularExpressions;
+using TambayanCafeAPI.Models;
+using TambayanCafeAPI.Services;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Text;
 
 namespace TambayanCafeAPI.Controllers 
 {
@@ -75,12 +79,35 @@ namespace TambayanCafeAPI.Controllers
                 return Unauthorized(new { error = "InvalidCredentials", message = "Invalid username or password" });
             }
 
+            // 🔑 Generate JWT
+            var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY")
+                         ?? "ThisIsYourVerySecureSecretKey123!@#";
+            var key = Encoding.UTF8.GetBytes(jwtKey);
+            var tokenHandler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new System.Security.Claims.ClaimsIdentity(new[]
+                {
+            new System.Security.Claims.Claim("id", user.Id.ToString()),
+            new System.Security.Claims.Claim("role", user.Role),
+            new System.Security.Claims.Claim("username", user.Username),
+            new System.Security.Claims.Claim("email", user.Email)
+        }),
+                Expires = DateTime.UtcNow.AddHours(2),
+                SigningCredentials = new SigningCredentials(
+                    new SymmetricSecurityKey(key),
+                    SecurityAlgorithms.HmacSha256Signature)
+            };
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+            var tokenString = tokenHandler.WriteToken(token);
+
             return Ok(new
             {
                 id = user.Id,
                 username = user.Username,
                 email = user.Email,
-                role = user.Role 
+                role = user.Role,
+                token = tokenString
             });
         }
 
