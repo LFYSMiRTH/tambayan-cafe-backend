@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using TambayanCafeAPI.Models;
 using TambayanCafeAPI.Services;
 using TambayanCafeSystem.Services;
+using System.Security.Claims;
 
 namespace TambayanCafeSystem.Controllers
 {
@@ -29,7 +30,7 @@ namespace TambayanCafeSystem.Controllers
 
         private IActionResult ValidateCustomerRole()
         {
-            var role = User.FindFirst("role")?.Value;
+            var role = User.FindFirst(ClaimTypes.Role)?.Value; // ✅ FIXED
             if (role != "customer")
                 return Unauthorized();
             return null;
@@ -46,7 +47,7 @@ namespace TambayanCafeSystem.Controllers
                 return Unauthorized();
 
             var customer = await _userService.GetUserByIdAsync(userId);
-            if (customer == null || customer.Role != "customer")
+            if (customer == null || customer.Role.ToLower() != "customer")
                 return NotFound();
 
             return Ok(new
