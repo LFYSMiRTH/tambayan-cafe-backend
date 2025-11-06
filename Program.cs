@@ -29,10 +29,7 @@ builder.Services.AddAuthentication("Bearer")
             ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "TambayanCafeAPI",
             ValidAudience = builder.Configuration["Jwt:Audience"] ?? "TambayanCafeClient",
             IssuerSigningKey = new SymmetricSecurityKey(key),
-            ClockSkew = TimeSpan.Zero,
-
-            // ✅ IMPORTANT FIX FOR ROLE-BASED AUTHORIZATION
-            RoleClaimType = "role"
+            ClockSkew = TimeSpan.Zero // Optional: strict expiration
         };
     });
 
@@ -84,7 +81,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
         System.Text.Json.JsonNamingPolicy.CamelCase;
 });
 
-// ✅ CORS
+// ✅ CORRECTED CORS (NO TRAILING SPACES!)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -109,7 +106,7 @@ builder.Services.AddCors(options =>
         })
         .AllowAnyHeader()
         .AllowAnyMethod()
-        .AllowCredentials();
+        .AllowCredentials(); // Optional but safe
     });
 });
 
