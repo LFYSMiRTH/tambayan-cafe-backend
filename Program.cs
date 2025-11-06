@@ -30,7 +30,6 @@ builder.Services.AddAuthentication("Bearer")
             ValidAudience = builder.Configuration["Jwt:Audience"] ?? "TambayanCafeClient",
             IssuerSigningKey = new SymmetricSecurityKey(key),
             ClockSkew = TimeSpan.Zero, // Optional: strict expiration
-            RoleClaimType = "role"
         };
     });
 
