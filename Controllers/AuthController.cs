@@ -54,8 +54,8 @@ namespace TambayanCafeAPI.Controllers
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.Name, user.Username),
-                new Claim("id", user.Id),
-                new Claim(ClaimTypes.Role, user.Role.ToLowerInvariant()) // ✅ FIXED
+                new Claim(ClaimTypes.NameIdentifier, user.Id), // ✅ Standard nameidentifier
+                new Claim(ClaimTypes.Role, user.Role.ToLowerInvariant()) // ✅ Standard role
             };
 
             var tokenDescriptor = new SecurityTokenDescriptor
