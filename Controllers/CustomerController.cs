@@ -4,8 +4,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TambayanCafeAPI.Models;
 using TambayanCafeAPI.Services;
+using TambayanCafeSystem.Services;
 
-namespace TambayanCafeAPI.Controllers
+namespace TambayanCafeSystem.Controllers
 {
     [ApiController]
     [Route("api/customer")]
