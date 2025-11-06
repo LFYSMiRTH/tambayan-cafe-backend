@@ -35,24 +35,27 @@ namespace TambayanCafeAPI.Controllers
             if (!user.IsActive)
                 return Unauthorized(new { error = "Account is inactive or blocked." });
 
-            // ✅ VERIFY AGAINST BCRYPT HASH
+            // ✅ VERIFY AGAINST HASHED PASSWORD
             if (!Tambrypt.Verify(loginDto.Password, user.Password))
                 return Unauthorized(new { error = "Invalid credentials." });
 
+            // ✅ LOAD JWT CONFIG
             var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY")
                          ?? _configuration["Jwt:Key"]
                          ?? "ThisIsYourVerySecureSecretKey123!@#";
+
             var issuer = _configuration["Jwt:Issuer"] ?? "TambayanCafeAPI";
             var audience = _configuration["Jwt:Audience"] ?? "TambayanCafeClient";
 
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.UTF8.GetBytes(jwtKey);
 
+            // ✅ IMPORTANT FIX: USE ClaimTypes.Role
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.Name, user.Username),
                 new Claim("id", user.Id),
-                new Claim("role", user.Role.ToLowerInvariant())
+                new Claim(ClaimTypes.Role, user.Role.ToLowerInvariant()) // ✅ FIXED
             };
 
             var tokenDescriptor = new SecurityTokenDescriptor
@@ -76,7 +79,7 @@ namespace TambayanCafeAPI.Controllers
                     user.Username,
                     user.Name,
                     user.Email,
-                    Role = user.Role.ToLowerInvariant() // ✅ CONSISTENT LOWERCASE
+                    Role = user.Role.ToLowerInvariant()
                 }
             });
         }
