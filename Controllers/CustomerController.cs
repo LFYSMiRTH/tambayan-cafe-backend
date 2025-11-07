@@ -6,6 +6,7 @@ using TambayanCafeAPI.Models;
 using TambayanCafeAPI.Services;
 using TambayanCafeSystem.Services;
 using System.Security.Claims;
+using Microsoft.Extensions.Logging;
 
 namespace TambayanCafeSystem.Controllers
 {
@@ -17,15 +18,18 @@ namespace TambayanCafeSystem.Controllers
         private readonly IUserService _userService;
         private readonly IOrderService _orderService;
         private readonly IMenuItemService _menuItemService;
+        private readonly ILogger<CustomerController> _logger;
 
         public CustomerController(
             IUserService userService,
             IOrderService orderService,
-            IMenuItemService menuItemService)
+            IMenuItemService menuItemService,
+            ILogger<CustomerController> logger)
         {
             _userService = userService;
             _orderService = orderService;
             _menuItemService = menuItemService;
+            _logger = logger;
         }
 
         private IActionResult ValidateCustomerRole()
@@ -68,8 +72,16 @@ namespace TambayanCafeSystem.Controllers
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized();
 
-            var orders = await _orderService.GetOrdersByCustomerIdAsync(userId, limit, status);
-            return Ok(orders);
+            try
+            {
+                var orders = await _orderService.GetOrdersByCustomerIdAsync(userId, limit, status);
+                return Ok(orders);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching orders for customer ID {CustomerId}. Query Params - Status: {Status}, Limit: {Limit}", userId, status, limit);
+                return StatusCode(500, new { message = "An error occurred while retrieving your orders." });
+            }
         }
 
         [HttpGet("favorites")]
