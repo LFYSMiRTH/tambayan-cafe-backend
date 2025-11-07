@@ -113,16 +113,28 @@ namespace TambayanCafeAPI.Services
 
         private void DeductInventoryForOrder(Order order)
         {
+            // Phase 1: Validate stock availability for all items in the order
             foreach (var orderItem in order.Items)
             {
-                var product = _productService.GetAll().FirstOrDefault(p => p.Id == orderItem.ProductId);
-                if (product == null) continue;
+                // Use GetById instead of GetAll().FirstOrDefault() for efficiency and consistency
+                var product = _productService.GetById(orderItem.ProductId);
+                if (product == null)
+                {
+                    _logger.LogWarning("Product {ProductId} not found during inventory validation for Order {OrderId}. Skipping order.", orderItem.ProductId, order.Id);
+                    // Throw an exception here to stop the order creation process if a product is missing
+                    throw new InvalidOperationException($"Product with ID {orderItem.ProductId} not found during inventory validation.");
+                }
 
                 foreach (var ingredient in product.Ingredients)
                 {
                     var inventoryItem = _inventoryService.GetAll()
                         .FirstOrDefault(i => i.Id == ingredient.InventoryItemId);
-                    if (inventoryItem == null) continue;
+                    if (inventoryItem == null)
+                    {
+                        _logger.LogWarning("Inventory item {InventoryItemId} for product {ProductId} not found for Order {OrderId}.", ingredient.InventoryItemId, orderItem.ProductId, order.Id);
+                        // Throw an exception here to stop the order creation process if an ingredient is missing
+                        throw new InvalidOperationException($"Inventory item '{ingredient.InventoryItemId}' for product '{orderItem.ProductId}' not found.");
+                    }
 
                     var needed = ingredient.QuantityRequired * orderItem.Quantity;
                     if (inventoryItem.CurrentStock < needed)
@@ -133,15 +145,23 @@ namespace TambayanCafeAPI.Services
                 }
             }
 
+            // Phase 2: If validation passes, perform the actual stock deduction
             foreach (var orderItem in order.Items)
             {
-                var product = _productService.GetAll().FirstOrDefault(p => p.Id == orderItem.ProductId);
-                if (product == null) continue;
+                // Use GetById again for the deduction loop, ensuring consistency
+                var product = _productService.GetById(orderItem.ProductId);
+                if (product == null)
+                {
+                    // This should ideally not happen if validation passed, but good to check again
+                    _logger.LogError("Product {ProductId} not found during inventory deduction for Order {OrderId} (second loop). This should not occur if validation passed.", orderItem.ProductId, order.Id);
+                    continue; // Skip deduction for this item if product is not found in the second loop
+                }
 
                 foreach (var ingredient in product.Ingredients)
                 {
                     var filter = Builders<InventoryItem>.Filter.Eq(i => i.Id, ingredient.InventoryItemId);
                     var update = Builders<InventoryItem>.Update.Inc(i => i.CurrentStock, -ingredient.QuantityRequired * orderItem.Quantity);
+                    // Perform the update operation
                     _inventoryService.GetCollection().UpdateOne(filter, update);
                 }
             }
