@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging; // For logging
 namespace TambayanCafeSystem.Controllers // Ensure this matches your controllers namespace
 {
     [ApiController]
-    [Route("api/[controller]")] // This sets the base route for the controller
+    [Route("api")] // Change the base route to just "api"
     public class OrderController : ControllerBase
     {
         private readonly IOrderService _orderService;
