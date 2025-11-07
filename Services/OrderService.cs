@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using MongoDB.Driver;
 using TambayanCafeAPI.Models;
 using Microsoft.Extensions.Logging;
+using MongoDB.Bson; // Add this for ObjectId
 
 namespace TambayanCafeAPI.Services
 {
@@ -127,8 +128,8 @@ namespace TambayanCafeAPI.Services
 
                 foreach (var ingredient in product.Ingredients)
                 {
-                    var inventoryItem = _inventoryService.GetAll()
-                        .FirstOrDefault(i => i.Id == ingredient.InventoryItemId);
+                    // Use GetById instead of GetAll().FirstOrDefault()
+                    var inventoryItem = _inventoryService.GetById(ingredient.InventoryItemId); // <--- Changed line
                     if (inventoryItem == null)
                     {
                         _logger.LogWarning("Inventory item {InventoryItemId} for product {ProductId} not found for Order {OrderId}.", ingredient.InventoryItemId, orderItem.ProductId, order.Id);
@@ -159,10 +160,14 @@ namespace TambayanCafeAPI.Services
 
                 foreach (var ingredient in product.Ingredients)
                 {
-                    var filter = Builders<InventoryItem>.Filter.Eq(i => i.Id, ingredient.InventoryItemId);
-                    var update = Builders<InventoryItem>.Update.Inc(i => i.CurrentStock, -ingredient.QuantityRequired * orderItem.Quantity);
+                    var filter = Builders<InventoryItem>.Filter.Eq("_id", ObjectId.Parse(ingredient.InventoryItemId)); // <--- Changed line
+                    var update = Builders<InventoryItem>.Update.Inc(i => i.CurrentStock, -(int)(ingredient.QuantityRequired * orderItem.Quantity)); // <--- Cast to int for Inc
                     // Perform the update operation
-                    _inventoryService.GetCollection().UpdateOne(filter, update);
+                    var result = _inventoryService.GetCollection().UpdateOne(filter, update); // <--- Changed line
+                    if (result.MatchedCount == 0)
+                    {
+                        _logger.LogWarning("No inventory item found to update for ID {InventoryItemId} in Order {OrderId}. Deduction failed.", ingredient.InventoryItemId, order.Id);
+                    }
                 }
             }
         }

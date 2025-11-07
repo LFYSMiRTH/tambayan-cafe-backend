@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using MongoDB.Driver;
 using TambayanCafeAPI.Models;
+using MongoDB.Bson; 
 
 namespace TambayanCafeAPI.Services
 {
@@ -12,7 +13,7 @@ namespace TambayanCafeAPI.Services
 
         public InventoryService(IMongoDatabase database)
         {
-            _inventory = database.GetCollection<InventoryItem>("Inventory");
+            _inventory = database.GetCollection<InventoryItem>("Inventory"); // Ensure collection name is correct
         }
 
         public List<InventoryItem> GetAll() =>
@@ -34,5 +35,15 @@ namespace TambayanCafeAPI.Services
         }
 
         public IMongoCollection<InventoryItem> GetCollection() => _inventory;
+
+        // Add this new method
+        public InventoryItem GetById(string id)
+        {
+            if (!ObjectId.TryParse(id, out var objectId))
+                return null; // Or throw an exception if preferred
+
+            var filter = Builders<InventoryItem>.Filter.Eq("_id", objectId);
+            return _inventory.Find(filter).FirstOrDefault();
+        }
     }
 }
