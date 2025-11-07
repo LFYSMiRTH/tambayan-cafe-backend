@@ -32,7 +32,13 @@ namespace TambayanCafeAPI.Models
         [BsonElement("createdAt")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        [BsonIgnore]
-        public string Status => IsCompleted ? "Completed" : "Pending";
+        [BsonElement("orderNumber")] // Add the OrderNumber field
+        public string OrderNumber { get; set; } = string.Empty;
+
+        [BsonElement("status")] // Add the Status field as a stored value
+        public string Status { get; set; } = "Pending"; // Default status
+
+        // [BsonIgnore]
+        // public string Status => IsCompleted ? "Completed" : "Pending"; // Comment out or remove the computed property if storing the field
     }
 }

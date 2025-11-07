@@ -20,6 +20,16 @@ namespace TambayanCafeAPI.Services
 
         public List<Product> GetAll() => _products.Find(_ => true).ToList();
 
+        // Add the GetById method
+        public Product GetById(string id)
+        {
+            if (!ObjectId.TryParse(id, out var objectId))
+                return null; // Or throw an exception if preferred
+
+            var filter = Builders<Product>.Filter.Eq("_id", objectId);
+            return _products.Find(filter).FirstOrDefault();
+        }
+
         public void Update(string id, Product product)
         {
             if (!ObjectId.TryParse(id, out var objectId))
