@@ -113,6 +113,7 @@ namespace TambayanCafeAPI.Services
             return "ORD" + DateTime.UtcNow.ToString("yyyyMMddHHmmssfff");
         }
 
+        // 🔥 FULLY REWRITTEN: Hybrid stock deduction (product + ingredients)
         private async Task DeductInventoryForOrderAsync(Order order)
         {
             foreach (var orderItem in order.Items)
@@ -123,29 +124,64 @@ namespace TambayanCafeAPI.Services
                     throw new InvalidOperationException($"Product with ID {orderItem.ProductId} not found.");
                 }
 
+                var requestedQty = orderItem.Quantity;
+                var remainingQty = requestedQty;
                 var hasIngredients = product.Ingredients != null && product.Ingredients.Any();
+                var hasProductStock = product.StockQuantity > 0;
 
-                // 🔹 STRATEGY: If it has ingredients → made-to-order → use ONLY ingredients
-                if (hasIngredients)
+                // 🔹 STEP 1: Use pre-made stock FIRST (if available)
+                if (hasProductStock)
                 {
+                    var useFromStock = Math.Min(product.StockQuantity, remainingQty);
+
+                    if (useFromStock > 0)
+                    {
+                        // Atomic: deduct from product stock
+                        var filter = Builders<Product>.Filter.And(
+                            Builders<Product>.Filter.Eq("_id", ObjectId.Parse(orderItem.ProductId)),
+                            Builders<Product>.Filter.Gte(p => p.StockQuantity, useFromStock)
+                        );
+                        var update = Builders<Product>.Update.Inc(p => p.StockQuantity, -useFromStock);
+                        var result = await _productService.GetCollection().UpdateOneAsync(filter, update);
+
+                        if (result.MatchedCount == 0)
+                        {
+                            throw new InvalidOperationException(
+                                $"❌ Not enough pre-made '{product.Name}': need {useFromStock}, have {product.StockQuantity}");
+                        }
+
+                        remainingQty -= useFromStock;
+                        _logger.LogInformation(
+                            "✅ Used {Qty} pre-made '{Product}' (stock: {Old} → {New})",
+                            useFromStock, product.Name, product.StockQuantity, product.StockQuantity - useFromStock);
+                    }
+                }
+
+                // 🔹 STEP 2: If still need more, make from ingredients
+                if (remainingQty > 0)
+                {
+                    if (!hasIngredients)
+                    {
+                        throw new InvalidOperationException(
+                            $"❌ Cannot fulfill remaining {remainingQty}x '{product.Name}': no ingredients defined.");
+                    }
+
+                    // Validate & deduct ingredients for remainingQty
                     foreach (var ingredient in product.Ingredients)
                     {
                         var inventoryItem = _inventoryService.GetById(ingredient.InventoryItemId);
                         if (inventoryItem == null)
                         {
-                            throw new InvalidOperationException($"Inventory item '{ingredient.InventoryItemId}' not found for product '{product.Name}'.");
+                            throw new InvalidOperationException($"Inventory item '{ingredient.InventoryItemId}' not found for '{product.Name}'.");
                         }
 
-                        // 🔥 CRITICAL: Use DECIMAL throughout — no long/int casting!
-                        decimal totalNeeded = ingredient.QuantityRequired * orderItem.Quantity;
-
-                        // Round up only if unit is "pcs" (pieces) — configurable
+                        decimal totalNeeded = ingredient.QuantityRequired * remainingQty;
                         if (string.Equals(ingredient.Unit, "pcs", StringComparison.OrdinalIgnoreCase))
                         {
                             totalNeeded = Math.Ceiling(totalNeeded);
                         }
 
-                        // ✅ Atomic update: decimal → decimal
+                        // 🔥 Atomic ingredient deduction
                         var filter = Builders<InventoryItem>.Filter.And(
                             Builders<InventoryItem>.Filter.Eq("_id", ObjectId.Parse(ingredient.InventoryItemId)),
                             Builders<InventoryItem>.Filter.Gte(i => i.CurrentStock, totalNeeded)
@@ -155,36 +191,22 @@ namespace TambayanCafeAPI.Services
 
                         if (result.MatchedCount == 0)
                         {
-                            // Re-fetch for accurate message
-                            var freshItem = _inventoryService.GetById(ingredient.InventoryItemId);
-                            var current = freshItem?.CurrentStock ?? 0m;
+                            var fresh = _inventoryService.GetById(ingredient.InventoryItemId);
                             throw new InvalidOperationException(
-                                $"❌ Insufficient '{inventoryItem.Name}': need {totalNeeded} {ingredient.Unit}, have {current}");
+                                $"❌ Insufficient '{inventoryItem.Name}' to make {remainingQty}x '{product.Name}': need {totalNeeded} {ingredient.Unit}, have {fresh?.CurrentStock ?? 0m}");
                         }
 
                         _logger.LogInformation(
-                            "✅ Used {TotalNeeded} {Unit} '{Ingredient}' for {Qty}x '{Product}'",
-                            totalNeeded, ingredient.Unit, inventoryItem.Name, orderItem.Quantity, product.Name);
+                            "✅ Used {TotalNeeded} {Unit} '{Ingredient}' to make {Qty}x '{Product}'",
+                            totalNeeded, ingredient.Unit, inventoryItem.Name, remainingQty, product.Name);
                     }
                 }
-                // 🔹 No ingredients? Use product stock (e.g., bottled drinks)
-                else
-                {
-                    var filter = Builders<Product>.Filter.And(
-                        Builders<Product>.Filter.Eq("_id", ObjectId.Parse(orderItem.ProductId)),
-                        Builders<Product>.Filter.Gte(p => p.StockQuantity, orderItem.Quantity)
-                    );
-                    var update = Builders<Product>.Update.Inc(p => p.StockQuantity, -orderItem.Quantity);
-                    var result = await _productService.GetCollection().UpdateOneAsync(filter, update);
 
-                    if (result.MatchedCount == 0)
-                    {
-                        throw new InvalidOperationException(
-                            $"❌ Not enough '{product.Name}': need {orderItem.Quantity}, have {product.StockQuantity}");
-                    }
-
-                    _logger.LogInformation("✅ Sold {Qty}x '{Product}'", orderItem.Quantity, product.Name);
-                }
+                // ✅ Success: full order fulfilled
+                _logger.LogInformation("✅ Fulfilled {Requested}x '{Product}' ({FromStock} from stock, {FromIngredients} made fresh)",
+                    requestedQty, product.Name,
+                    requestedQty - remainingQty,
+                    remainingQty);
             }
         }
 
