@@ -171,6 +171,7 @@ namespace TambayanCafeAPI.Services
                 }
 
                 result.Add(dto);
+                result.Add(dto);
             }
 
             return result;
