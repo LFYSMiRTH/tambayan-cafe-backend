@@ -30,6 +30,9 @@ namespace TambayanCafeAPI.Services
             return _products.Find(filter).FirstOrDefault();
         }
 
+        // 🔥 NEW: Expose collection for atomic updates (e.g., stock deduction in OrderService)
+        public IMongoCollection<Product> GetCollection() => _products;
+
         public void Update(string id, Product product)
         {
             if (!ObjectId.TryParse(id, out var objectId))
@@ -68,7 +71,6 @@ namespace TambayanCafeAPI.Services
                 .Find(p => p.IsAvailable == true)
                 .ToListAsync();
         }
-
 
         public async Task<List<Product>> GetTopSellingMenuItemsAsync(int limit = 5)
         {

@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using MongoDB.Driver;
 using TambayanCafeAPI.Models;
 using Microsoft.Extensions.Logging;
-using MongoDB.Bson; // Add this for ObjectId
+using MongoDB.Bson;
 
 namespace TambayanCafeAPI.Services
 {
@@ -40,24 +40,21 @@ namespace TambayanCafeAPI.Services
             // Validate menu items exist and prices are correct (optional, for security)
             foreach (var item in orderRequest.Items)
             {
-                var menuItem = _productService.GetById(item.ProductId); // Assuming ProductService has GetById
+                var menuItem = _productService.GetById(item.ProductId);
                 if (menuItem == null)
                 {
                     throw new ArgumentException($"Menu item with ID {item.ProductId} not found.", nameof(orderRequest));
                 }
                 // Optional: Check if price matches the item record
-                if (Math.Abs(item.Price - menuItem.Price) > 0.01m) // Tolerance for floating point
+                if (Math.Abs(item.Price - menuItem.Price) > 0.01m)
                 {
                     _logger.LogWarning("Price mismatch for item {ProductId}. Requested: {RequestedPrice}, Actual: {ActualPrice}", item.ProductId, item.Price, menuItem.Price);
-                    // Decide: Throw exception, use actual price, or log and continue
-                    // For now, let's proceed with the requested price as sent by frontend
-                    // item.Price = menuItem.Price; // Uncomment if you want to enforce actual price
                 }
             }
 
             // Calculate total amount again (optional, for security) - frontend provides it, but server should verify
             var calculatedTotal = orderRequest.Items.Sum(item => item.Price * item.Quantity);
-            if (Math.Abs(calculatedTotal - orderRequest.TotalAmount) > 0.01m) // Tolerance for floating point
+            if (Math.Abs(calculatedTotal - orderRequest.TotalAmount) > 0.01m)
             {
                 throw new ArgumentException("Calculated total does not match provided total.", nameof(orderRequest));
             }
@@ -65,7 +62,7 @@ namespace TambayanCafeAPI.Services
             // Create the Order object
             var order = new Order
             {
-                OrderNumber = GenerateOrderNumber(), // Implement this logic
+                OrderNumber = GenerateOrderNumber(),
                 CustomerId = orderRequest.CustomerId,
                 CustomerEmail = orderRequest.CustomerEmail,
                 Items = orderRequest.Items.Select(item => new OrderItem
@@ -79,8 +76,8 @@ namespace TambayanCafeAPI.Services
                     Sugar = item.Sugar
                 }).ToList(),
                 TotalAmount = orderRequest.TotalAmount,
-                Status = "Pending", // Initial status
-                IsCompleted = false, // Default
+                Status = "Pending",
+                IsCompleted = false,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -90,25 +87,22 @@ namespace TambayanCafeAPI.Services
                 DeductInventoryForOrder(order);
                 await _orders.InsertOneAsync(order);
             }
-            catch (InvalidOperationException ex) // Handle inventory errors specifically
+            catch (InvalidOperationException ex)
             {
                 _logger.LogError(ex, "Inventory error while creating order for customer {CustomerId}", order.CustomerId);
-                throw; // Re-throw to be caught by controller
+                throw;
             }
-            catch (Exception ex) // Handle other database errors
+            catch (Exception ex)
             {
                 _logger.LogError(ex, "Database error while creating order for customer {CustomerId}", order.CustomerId);
-                throw; // Re-throw to be caught by controller
+                throw;
             }
 
             return order;
         }
 
-        // Example method to generate a unique order number
         private string GenerateOrderNumber()
         {
-            // Implement your logic for generating a unique order number
-            // e.g., "ORD" + DateTime.UtcNow.ToString("yyyyMMddHHmmss") + Random.Next(100, 999);
             return "ORD" + DateTime.UtcNow.ToString("yyyyMMddHHmmssfff");
         }
 
@@ -117,23 +111,27 @@ namespace TambayanCafeAPI.Services
             // Phase 1: Validate stock availability for all items in the order
             foreach (var orderItem in order.Items)
             {
-                // Use GetById instead of GetAll().FirstOrDefault() for efficiency and consistency
                 var product = _productService.GetById(orderItem.ProductId);
                 if (product == null)
                 {
                     _logger.LogWarning("Product {ProductId} not found during inventory validation for Order {OrderId}. Skipping order.", orderItem.ProductId, order.Id);
-                    // Throw an exception here to stop the order creation process if a product is missing
                     throw new InvalidOperationException($"Product with ID {orderItem.ProductId} not found during inventory validation.");
                 }
 
+                // 🔥 NEW: Check product-level stockQuantity
+                if (product.StockQuantity < orderItem.Quantity)
+                {
+                    throw new InvalidOperationException(
+                        $"Not enough stock for product '{product.Name}'. Required: {orderItem.Quantity}, Available: {product.StockQuantity}");
+                }
+
+                // Validate ingredient-level stock (existing logic)
                 foreach (var ingredient in product.Ingredients)
                 {
-                    // Use GetById instead of GetAll().FirstOrDefault()
-                    var inventoryItem = _inventoryService.GetById(ingredient.InventoryItemId); // <--- Changed line
+                    var inventoryItem = _inventoryService.GetById(ingredient.InventoryItemId);
                     if (inventoryItem == null)
                     {
                         _logger.LogWarning("Inventory item {InventoryItemId} for product {ProductId} not found for Order {OrderId}.", ingredient.InventoryItemId, orderItem.ProductId, order.Id);
-                        // Throw an exception here to stop the order creation process if an ingredient is missing
                         throw new InvalidOperationException($"Inventory item '{ingredient.InventoryItemId}' for product '{orderItem.ProductId}' not found.");
                     }
 
@@ -147,23 +145,36 @@ namespace TambayanCafeAPI.Services
             }
 
             // Phase 2: If validation passes, perform the actual stock deduction
+
+            // 🔥 NEW: Deduct product-level StockQuantity
             foreach (var orderItem in order.Items)
             {
-                // Use GetById again for the deduction loop, ensuring consistency
+                var productFilter = Builders<Product>.Filter.Eq("_id", ObjectId.Parse(orderItem.ProductId));
+                var productUpdate = Builders<Product>.Update.Inc(p => p.StockQuantity, -orderItem.Quantity);
+                var productResult = _productService.GetCollection().UpdateOne(productFilter, productUpdate);
+
+                if (productResult.MatchedCount == 0)
+                {
+                    _logger.LogWarning("No product found to update stock for ID {ProductId} in Order {OrderId}. Product-level deduction failed.", orderItem.ProductId, order.Id);
+                }
+                else if (productResult.ModifiedCount == 0)
+                {
+                    _logger.LogWarning("Product stock update succeeded but no changes made for ID {ProductId} in Order {OrderId}. May have been race condition.", orderItem.ProductId, order.Id);
+                }
+
+                // Existing: Deduct ingredient-level inventory
                 var product = _productService.GetById(orderItem.ProductId);
                 if (product == null)
                 {
-                    // This should ideally not happen if validation passed, but good to check again
                     _logger.LogError("Product {ProductId} not found during inventory deduction for Order {OrderId} (second loop). This should not occur if validation passed.", orderItem.ProductId, order.Id);
-                    continue; // Skip deduction for this item if product is not found in the second loop
+                    continue;
                 }
 
                 foreach (var ingredient in product.Ingredients)
                 {
-                    var filter = Builders<InventoryItem>.Filter.Eq("_id", ObjectId.Parse(ingredient.InventoryItemId)); // <--- Changed line
-                    var update = Builders<InventoryItem>.Update.Inc(i => i.CurrentStock, -(int)(ingredient.QuantityRequired * orderItem.Quantity)); // <--- Cast to int for Inc
-                    // Perform the update operation
-                    var result = _inventoryService.GetCollection().UpdateOne(filter, update); // <--- Changed line
+                    var filter = Builders<InventoryItem>.Filter.Eq("_id", ObjectId.Parse(ingredient.InventoryItemId));
+                    var update = Builders<InventoryItem>.Update.Inc(i => i.CurrentStock, -(int)(ingredient.QuantityRequired * orderItem.Quantity));
+                    var result = _inventoryService.GetCollection().UpdateOne(filter, update);
                     if (result.MatchedCount == 0)
                     {
                         _logger.LogWarning("No inventory item found to update for ID {InventoryItemId} in Order {OrderId}. Deduction failed.", ingredient.InventoryItemId, order.Id);
@@ -267,7 +278,6 @@ namespace TambayanCafeAPI.Services
                 var combinedStatusFilter = Builders<Order>.Filter.Or(statusFilters);
                 filter = Builders<Order>.Filter.And(filter, combinedStatusFilter);
             }
-            // Ensure limit is at least 1 to prevent potential issues with MongoDB driver
             var effectiveLimit = limit <= 0 ? int.MaxValue : limit;
             return await _orders
                 .Find(filter)
