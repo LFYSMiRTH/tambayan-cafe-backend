@@ -36,33 +36,28 @@ namespace TambayanCafeAPI.Services
             if (orderRequest == null)
                 throw new ArgumentNullException(nameof(orderRequest));
 
-            // Validate customer ID exists (optional, depending on your auth flow)
             if (string.IsNullOrEmpty(orderRequest.CustomerId))
                 throw new ArgumentException("Customer ID is required.", nameof(orderRequest));
 
-            // Validate menu items exist and prices are correct (optional, for security)
             foreach (var item in orderRequest.Items)
             {
-                var menuItem = _productService.GetById(item.ProductId);
-                if (menuItem == null)
+                var product = _productService.GetById(item.ProductId);
+                if (product == null)
                 {
-                    throw new ArgumentException($"Menu item with ID {item.ProductId} not found.", nameof(orderRequest));
+                    throw new ArgumentException($"Product with ID {item.ProductId} not found.", nameof(orderRequest));
                 }
-                // Optional: Check if price matches the item record
-                if (Math.Abs(item.Price - menuItem.Price) > 0.01m)
+                if (Math.Abs(item.Price - product.Price) > 0.01m)
                 {
-                    _logger.LogWarning("Price mismatch for item {ProductId}. Requested: {RequestedPrice}, Actual: {ActualPrice}", item.ProductId, item.Price, menuItem.Price);
+                    _logger.LogWarning("Price mismatch for item {ProductId}. Requested: {RequestedPrice}, Actual: {ActualPrice}", item.ProductId, item.Price, product.Price);
                 }
             }
 
-            // Calculate total amount again (optional, for security) - frontend provides it, but server should verify
             var calculatedTotal = orderRequest.Items.Sum(item => item.Price * item.Quantity);
             if (Math.Abs(calculatedTotal - orderRequest.TotalAmount) > 0.01m)
             {
                 throw new ArgumentException("Calculated total does not match provided total.", nameof(orderRequest));
             }
 
-            // Create the Order object
             var order = new Order
             {
                 OrderNumber = GenerateOrderNumber(),
@@ -84,13 +79,11 @@ namespace TambayanCafeAPI.Services
                 CreatedAt = DateTime.UtcNow
             };
 
-            // Deduct inventory and save the order
             try
             {
-                DeductInventoryForOrder(order);
+                await DeductInventoryForOrderAsync(order);
                 await _orders.InsertOneAsync(order);
 
-                // 🔔 NEW: Create notification for new order
                 var notification = new Notification
                 {
                     Message = $"🧾 New order #{order.OrderNumber} received.",
@@ -120,108 +113,80 @@ namespace TambayanCafeAPI.Services
             return "ORD" + DateTime.UtcNow.ToString("yyyyMMddHHmmssfff");
         }
 
-        private void DeductInventoryForOrder(Order order)
+        private async Task DeductInventoryForOrderAsync(Order order)
         {
-            // Phase 1: Validate stock availability for all items in the order
             foreach (var orderItem in order.Items)
             {
                 var product = _productService.GetById(orderItem.ProductId);
                 if (product == null)
                 {
-                    _logger.LogWarning("Product {ProductId} not found during inventory validation for Order {OrderId}. Skipping order.", orderItem.ProductId, order.Id);
-                    throw new InvalidOperationException($"Product with ID {orderItem.ProductId} not found during inventory validation.");
+                    throw new InvalidOperationException($"Product with ID {orderItem.ProductId} not found.");
                 }
 
-                // 🔥 NEW: Check product-level stockQuantity
-                if (product.StockQuantity < orderItem.Quantity)
-                {
-                    throw new InvalidOperationException(
-                        $"Not enough stock for product '{product.Name}'. Required: {orderItem.Quantity}, Available: {product.StockQuantity}");
-                }
+                var hasIngredients = product.Ingredients != null && product.Ingredients.Any();
+                var hasProductStock = product.StockQuantity > 0;
 
-                // Validate ingredient-level stock (existing logic)
-                foreach (var ingredient in product.Ingredients)
+                // 🔹 CASE 1: Product WITH ingredients
+                if (hasIngredients)
                 {
-                    var inventoryItem = _inventoryService.GetById(ingredient.InventoryItemId);
-                    if (inventoryItem == null)
+                    foreach (var ingredient in product.Ingredients)
                     {
-                        _logger.LogWarning("Inventory item {InventoryItemId} for product {ProductId} not found for Order {OrderId}.", ingredient.InventoryItemId, orderItem.ProductId, order.Id);
-                        throw new InvalidOperationException($"Inventory item '{ingredient.InventoryItemId}' for product '{orderItem.ProductId}' not found.");
-                    }
+                        var inventoryItem = _inventoryService.GetById(ingredient.InventoryItemId);
+                        if (inventoryItem == null)
+                        {
+                            throw new InvalidOperationException($"Inventory item '{ingredient.InventoryItemId}' not found for product '{product.Name}'.");
+                        }
 
-                    var needed = ingredient.QuantityRequired * orderItem.Quantity;
-                    // 🔥 IMPROVED: Round needed quantity for "pcs" unit (since pcs must be whole)
-                    int neededPcs = (int)Math.Ceiling(needed); // e.g., 2.1 → 3 pcs
-                    if (inventoryItem.CurrentStock < neededPcs)
+                        decimal totalNeeded = ingredient.QuantityRequired * orderItem.Quantity;
+                        // 🔥 Use long for deduction to match stock (if stock is long)
+                        long deduction = (long)Math.Ceiling(totalNeeded);
+
+                        // 🔥 Fix: Compare same types — cast CurrentStock to long if needed
+                        var filter = Builders<InventoryItem>.Filter.And(
+                            Builders<InventoryItem>.Filter.Eq("_id", ObjectId.Parse(ingredient.InventoryItemId)),
+                            Builders<InventoryItem>.Filter.Gte(i => i.CurrentStock, (decimal)deduction)
+                        );
+                        var update = Builders<InventoryItem>.Update.Inc(i => i.CurrentStock, -deduction);
+                        var result = await _inventoryService.GetCollection().UpdateOneAsync(filter, update);
+
+                        if (result.MatchedCount == 0)
+                        {
+                            var current = inventoryItem.CurrentStock;
+                            // 🔥 Use inventoryItem.Name (not ingredient.Name!)
+                            throw new InvalidOperationException(
+                                $"Not enough stock for '{inventoryItem.Name}'. Required: {deduction} {ingredient.Unit}, Available: {current}");
+                        }
+
+                        _logger.LogInformation(
+                            "✅ Deducted {Deduction} {Unit} of '{Ingredient}' for {Qty}x '{Product}' (Order: {Order})",
+                            deduction, ingredient.Unit, inventoryItem.Name, orderItem.Quantity, product.Name, order.Id);
+                    }
+                }
+                // 🔹 CASE 2: Product WITHOUT ingredients
+                else if (hasProductStock)
+                {
+                    long qty = orderItem.Quantity; // Ensure long if StockQuantity is long
+
+                    var productFilter = Builders<Product>.Filter.And(
+                        Builders<Product>.Filter.Eq("_id", ObjectId.Parse(orderItem.ProductId)),
+                        Builders<Product>.Filter.Gte(p => p.StockQuantity, (int)qty) // Cast if StockQuantity is int
+                    );
+                    var productUpdate = Builders<Product>.Update.Inc(p => p.StockQuantity, -(int)qty);
+                    var productResult = await _productService.GetCollection().UpdateOneAsync(productFilter, productUpdate);
+
+                    if (productResult.MatchedCount == 0)
                     {
                         throw new InvalidOperationException(
-                            $"Not enough stock for '{inventoryItem.Name}'. Required: {neededPcs} {ingredient.Unit}, Available: {inventoryItem.CurrentStock}");
-                    }
-                }
-            }
-
-            // Phase 2: If validation passes, perform the actual stock deduction
-
-            // 🔥 NEW: Deduct product-level StockQuantity
-            foreach (var orderItem in order.Items)
-            {
-                var productFilter = Builders<Product>.Filter.Eq("_id", ObjectId.Parse(orderItem.ProductId));
-                var productUpdate = Builders<Product>.Update.Inc(p => p.StockQuantity, -orderItem.Quantity);
-                var productResult = _productService.GetCollection().UpdateOne(productFilter, productUpdate);
-
-                if (productResult.MatchedCount == 0)
-                {
-                    _logger.LogWarning("No product found to update stock for ID {ProductId} in Order {OrderId}. Product-level deduction failed.", orderItem.ProductId, order.Id);
-                }
-                else if (productResult.ModifiedCount == 0)
-                {
-                    _logger.LogWarning("Product stock update succeeded but no changes made for ID {ProductId} in Order {OrderId}. May have been race condition.", orderItem.ProductId, order.Id);
-                }
-
-                // Existing: Deduct ingredient-level inventory
-                var product = _productService.GetById(orderItem.ProductId);
-                if (product == null)
-                {
-                    _logger.LogError("Product {ProductId} not found during inventory deduction for Order {OrderId} (second loop). This should not occur if validation passed.", orderItem.ProductId, order.Id);
-                    continue;
-                }
-
-                foreach (var ingredient in product.Ingredients)
-                {
-                    var inventoryItem = _inventoryService.GetById(ingredient.InventoryItemId);
-                    if (inventoryItem == null)
-                    {
-                        _logger.LogWarning("Inventory item missing during deduction: {InventoryItemId}", ingredient.InventoryItemId);
-                        continue;
+                            $"Not enough stock for product '{product.Name}'. Required: {orderItem.Quantity}, Available: {product.StockQuantity}");
                     }
 
-                    // 🔥 IMPROVED: Use Math.Ceiling for "pcs" — ensures no fractional items
-                    decimal needed = ingredient.QuantityRequired * orderItem.Quantity;
-                    int deduction = (int)Math.Ceiling(needed);
-
-                    // 🔥 NEW: Log the deduction for visibility
                     _logger.LogInformation(
-                        "Deducting {Deduction} {Unit} of '{IngredientName}' (ID: {InventoryId}) for {OrderQuantity}x '{ProductName}' (Order: {OrderId})",
-                        deduction,
-                        ingredient.Unit,
-                        inventoryItem.Name,
-                        ingredient.InventoryItemId,
-                        orderItem.Quantity,
-                        product.Name,
-                        order.Id);
-
-                    var filter = Builders<InventoryItem>.Filter.Eq("_id", ObjectId.Parse(ingredient.InventoryItemId));
-                    var update = Builders<InventoryItem>.Update.Inc(i => i.CurrentStock, -deduction);
-                    var result = _inventoryService.GetCollection().UpdateOne(filter, update);
-
-                    if (result.MatchedCount == 0)
-                    {
-                        _logger.LogWarning("No inventory item found to update for ID {InventoryItemId} in Order {OrderId}. Deduction failed.", ingredient.InventoryItemId, order.Id);
-                    }
-                    else if (result.ModifiedCount == 0)
-                    {
-                        _logger.LogWarning("Inventory update succeeded but no change for {InventoryId} — possible race condition.", ingredient.InventoryItemId);
-                    }
+                        "✅ Deducted {Qty} units of '{Product}' (Order: {Order})",
+                        orderItem.Quantity, product.Name, order.Id);
+                }
+                else
+                {
+                    _logger.LogWarning("Product '{ProductId}' has no stock tracking. Assuming unlimited.", product.Id);
                 }
             }
         }
@@ -255,7 +220,7 @@ namespace TambayanCafeAPI.Services
                 {
                     ProductId = g.Key,
                     QuantitySold = g.Sum(oi => oi.Quantity),
-                    TotalRevenue = g.Sum(oi => oi.PriceAtOrder * oi.Quantity)
+                    TotalRevenue = g.Sum(oi => oi.Price * oi.Quantity)
                 })
                 .ToList();
 
