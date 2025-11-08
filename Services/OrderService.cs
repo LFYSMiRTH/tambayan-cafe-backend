@@ -136,10 +136,12 @@ namespace TambayanCafeAPI.Services
                     }
 
                     var needed = ingredient.QuantityRequired * orderItem.Quantity;
-                    if (inventoryItem.CurrentStock < needed)
+                    // 🔥 IMPROVED: Round needed quantity for "pcs" unit (since pcs must be whole)
+                    int neededPcs = (int)Math.Ceiling(needed); // e.g., 2.1 → 3 pcs
+                    if (inventoryItem.CurrentStock < neededPcs)
                     {
                         throw new InvalidOperationException(
-                            $"Not enough stock for '{inventoryItem.Name}'. Required: {needed}, Available: {inventoryItem.CurrentStock}");
+                            $"Not enough stock for '{inventoryItem.Name}'. Required: {neededPcs} {ingredient.Unit}, Available: {inventoryItem.CurrentStock}");
                     }
                 }
             }
@@ -172,12 +174,39 @@ namespace TambayanCafeAPI.Services
 
                 foreach (var ingredient in product.Ingredients)
                 {
+                    var inventoryItem = _inventoryService.GetById(ingredient.InventoryItemId);
+                    if (inventoryItem == null)
+                    {
+                        _logger.LogWarning("Inventory item missing during deduction: {InventoryItemId}", ingredient.InventoryItemId);
+                        continue;
+                    }
+
+                    // 🔥 IMPROVED: Use Math.Ceiling for "pcs" — ensures no fractional items
+                    decimal needed = ingredient.QuantityRequired * orderItem.Quantity;
+                    int deduction = (int)Math.Ceiling(needed);
+
+                    // 🔥 NEW: Log the deduction for visibility
+                    _logger.LogInformation(
+                        "Deducting {Deduction} {Unit} of '{IngredientName}' (ID: {InventoryId}) for {OrderQuantity}x '{ProductName}' (Order: {OrderId})",
+                        deduction,
+                        ingredient.Unit,
+                        inventoryItem.Name,
+                        ingredient.InventoryItemId,
+                        orderItem.Quantity,
+                        product.Name,
+                        order.Id);
+
                     var filter = Builders<InventoryItem>.Filter.Eq("_id", ObjectId.Parse(ingredient.InventoryItemId));
-                    var update = Builders<InventoryItem>.Update.Inc(i => i.CurrentStock, -(int)(ingredient.QuantityRequired * orderItem.Quantity));
+                    var update = Builders<InventoryItem>.Update.Inc(i => i.CurrentStock, -deduction);
                     var result = _inventoryService.GetCollection().UpdateOne(filter, update);
+
                     if (result.MatchedCount == 0)
                     {
                         _logger.LogWarning("No inventory item found to update for ID {InventoryItemId} in Order {OrderId}. Deduction failed.", ingredient.InventoryItemId, order.Id);
+                    }
+                    else if (result.ModifiedCount == 0)
+                    {
+                        _logger.LogWarning("Inventory update succeeded but no change for {InventoryId} — possible race condition.", ingredient.InventoryItemId);
                     }
                 }
             }
