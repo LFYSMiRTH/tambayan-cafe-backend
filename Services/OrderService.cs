@@ -124,9 +124,8 @@ namespace TambayanCafeAPI.Services
                 }
 
                 var hasIngredients = product.Ingredients != null && product.Ingredients.Any();
-                var hasProductStock = product.StockQuantity > 0;
 
-                // 🔹 CASE 1: Product WITH ingredients
+                // 🔹 STRATEGY: If it has ingredients → made-to-order → use ONLY ingredients
                 if (hasIngredients)
                 {
                     foreach (var ingredient in product.Ingredients)
@@ -137,56 +136,54 @@ namespace TambayanCafeAPI.Services
                             throw new InvalidOperationException($"Inventory item '{ingredient.InventoryItemId}' not found for product '{product.Name}'.");
                         }
 
+                        // 🔥 CRITICAL: Use DECIMAL throughout — no long/int casting!
                         decimal totalNeeded = ingredient.QuantityRequired * orderItem.Quantity;
-                        // 🔥 Use long for deduction to match stock (if stock is long)
-                        long deduction = (long)Math.Ceiling(totalNeeded);
 
-                        // 🔥 Fix: Compare same types — cast CurrentStock to long if needed
+                        // Round up only if unit is "pcs" (pieces) — configurable
+                        if (string.Equals(ingredient.Unit, "pcs", StringComparison.OrdinalIgnoreCase))
+                        {
+                            totalNeeded = Math.Ceiling(totalNeeded);
+                        }
+
+                        // ✅ Atomic update: decimal → decimal
                         var filter = Builders<InventoryItem>.Filter.And(
                             Builders<InventoryItem>.Filter.Eq("_id", ObjectId.Parse(ingredient.InventoryItemId)),
-                            Builders<InventoryItem>.Filter.Gte(i => i.CurrentStock, (decimal)deduction)
+                            Builders<InventoryItem>.Filter.Gte(i => i.CurrentStock, totalNeeded)
                         );
-                        var update = Builders<InventoryItem>.Update.Inc(i => i.CurrentStock, -deduction);
+                        var update = Builders<InventoryItem>.Update.Inc(i => i.CurrentStock, -totalNeeded);
                         var result = await _inventoryService.GetCollection().UpdateOneAsync(filter, update);
 
                         if (result.MatchedCount == 0)
                         {
-                            var current = inventoryItem.CurrentStock;
-                            // 🔥 Use inventoryItem.Name (not ingredient.Name!)
+                            // Re-fetch for accurate message
+                            var freshItem = _inventoryService.GetById(ingredient.InventoryItemId);
+                            var current = freshItem?.CurrentStock ?? 0m;
                             throw new InvalidOperationException(
-                                $"Not enough stock for '{inventoryItem.Name}'. Required: {deduction} {ingredient.Unit}, Available: {current}");
+                                $"❌ Insufficient '{inventoryItem.Name}': need {totalNeeded} {ingredient.Unit}, have {current}");
                         }
 
                         _logger.LogInformation(
-                            "✅ Deducted {Deduction} {Unit} of '{Ingredient}' for {Qty}x '{Product}' (Order: {Order})",
-                            deduction, ingredient.Unit, inventoryItem.Name, orderItem.Quantity, product.Name, order.Id);
+                            "✅ Used {TotalNeeded} {Unit} '{Ingredient}' for {Qty}x '{Product}'",
+                            totalNeeded, ingredient.Unit, inventoryItem.Name, orderItem.Quantity, product.Name);
                     }
                 }
-                // 🔹 CASE 2: Product WITHOUT ingredients
-                else if (hasProductStock)
-                {
-                    long qty = orderItem.Quantity; // Ensure long if StockQuantity is long
-
-                    var productFilter = Builders<Product>.Filter.And(
-                        Builders<Product>.Filter.Eq("_id", ObjectId.Parse(orderItem.ProductId)),
-                        Builders<Product>.Filter.Gte(p => p.StockQuantity, (int)qty) // Cast if StockQuantity is int
-                    );
-                    var productUpdate = Builders<Product>.Update.Inc(p => p.StockQuantity, -(int)qty);
-                    var productResult = await _productService.GetCollection().UpdateOneAsync(productFilter, productUpdate);
-
-                    if (productResult.MatchedCount == 0)
-                    {
-                        throw new InvalidOperationException(
-                            $"Not enough stock for product '{product.Name}'. Required: {orderItem.Quantity}, Available: {product.StockQuantity}");
-                    }
-
-                    _logger.LogInformation(
-                        "✅ Deducted {Qty} units of '{Product}' (Order: {Order})",
-                        orderItem.Quantity, product.Name, order.Id);
-                }
+                // 🔹 No ingredients? Use product stock (e.g., bottled drinks)
                 else
                 {
-                    _logger.LogWarning("Product '{ProductId}' has no stock tracking. Assuming unlimited.", product.Id);
+                    var filter = Builders<Product>.Filter.And(
+                        Builders<Product>.Filter.Eq("_id", ObjectId.Parse(orderItem.ProductId)),
+                        Builders<Product>.Filter.Gte(p => p.StockQuantity, orderItem.Quantity)
+                    );
+                    var update = Builders<Product>.Update.Inc(p => p.StockQuantity, -orderItem.Quantity);
+                    var result = await _productService.GetCollection().UpdateOneAsync(filter, update);
+
+                    if (result.MatchedCount == 0)
+                    {
+                        throw new InvalidOperationException(
+                            $"❌ Not enough '{product.Name}': need {orderItem.Quantity}, have {product.StockQuantity}");
+                    }
+
+                    _logger.LogInformation("✅ Sold {Qty}x '{Product}'", orderItem.Quantity, product.Name);
                 }
             }
         }
