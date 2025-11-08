@@ -12,16 +12,21 @@ namespace TambayanCafeAPI.Services
     {
         private readonly IMongoCollection<InventoryItem> _inventory;
         private readonly ILogger<ReorderService> _logger;
+        private readonly NotificationService _notificationService;
 
-        public ReorderService(IMongoDatabase database, ILogger<ReorderService> logger)
+        public ReorderService(
+            IMongoDatabase database,
+            ILogger<ReorderService> logger,
+            NotificationService notificationService)
         {
             _inventory = database.GetCollection<InventoryItem>("Inventory");
             _logger = logger;
+            _notificationService = notificationService;
         }
 
         public async Task CheckAndReorderAsync()
         {
-            // ✅ Final fix: PascalCase field names + BsonDocument $expr (v2.7+ compatible)
+            // ✅ PascalCase field names + BsonDocument $expr (v2.7+ compatible)
             var filter = new BsonDocumentFilterDefinition<InventoryItem>(
                 new BsonDocument("$expr",
                     new BsonDocument("$lte",
@@ -52,6 +57,18 @@ namespace TambayanCafeAPI.Services
                     _logger.LogInformation(
                         "✅ AUTO-REORDERED: {Name} — +{Qty} {Unit} (ReorderLevel: {ReorderLevel}, New Stock: {NewStock})",
                         item.Name, reorderAmount, item.Unit, item.ReorderLevel, newStock);
+
+                    // 🔔 NEW: Create notification
+                    var notification = new Notification
+                    {
+                        Message = $"⚠️ Auto-reordered {item.Name}: +{reorderAmount} {item.Unit} (was {item.CurrentStock}, now {newStock})",
+                        Type = "warning",
+                        Category = "stock",
+                        RelatedId = item.Id,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    await _notificationService.CreateAsync(notification);
                 }
             }
         }

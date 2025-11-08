@@ -56,13 +56,18 @@ builder.Services.AddSingleton<IMongoDatabase>(sp =>
     return client.GetDatabase(databaseName);
 });
 
-// ✅ Register services with logging
+// ✅ Register services with logging — ORDER MATTERS!
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<ProductService>();
 builder.Services.AddScoped<InventoryService>();
 builder.Services.AddScoped<SupplierService>();
-builder.Services.AddScoped<OrderService>();
 
+// 🔥 NEW: Register NotificationService BEFORE dependent services
+builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<ReorderService>();
+builder.Services.AddScoped<OrderService>(); // Now depends on NotificationService
+
+// 🔥 Keep interfaces for DI
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IMenuItemService, ProductService>();
@@ -76,8 +81,7 @@ builder.Services.AddSingleton<IReportService>(sp =>
     return new ReportService(orderService, inventoryService, productService, database);
 });
 
-// 🔥 NEW: Register auto-reorder services
-builder.Services.AddScoped<ReorderService>();
+// 🔥 Background service (still after scoped services)
 builder.Services.AddHostedService<ReorderBackgroundService>();
 
 builder.Services.ConfigureHttpJsonOptions(options =>
@@ -94,7 +98,7 @@ builder.Services.AddCors(options =>
         policy.SetIsOriginAllowed(origin =>
         {
             var cleanOrigin = origin?.Trim();
-            if (string.Equals(cleanOrigin, "https://my-frontend-app-eight.vercel.app    ", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(cleanOrigin, "https://my-frontend-app-eight.vercel.app      ", StringComparison.OrdinalIgnoreCase))
                 return true;
             if (!string.IsNullOrEmpty(cleanOrigin) &&
                 cleanOrigin.StartsWith("https://my-frontend-app-", StringComparison.OrdinalIgnoreCase) &&

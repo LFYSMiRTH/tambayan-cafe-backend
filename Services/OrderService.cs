@@ -14,17 +14,20 @@ namespace TambayanCafeAPI.Services
         private readonly IMongoCollection<Order> _orders;
         private readonly ProductService _productService;
         private readonly InventoryService _inventoryService;
+        private readonly NotificationService _notificationService;
         private readonly ILogger<OrderService> _logger;
 
         public OrderService(
             IMongoDatabase database,
             ProductService productService,
             InventoryService inventoryService,
+            NotificationService notificationService,
             ILogger<OrderService> logger)
         {
             _orders = database.GetCollection<Order>("orders");
             _productService = productService;
             _inventoryService = inventoryService;
+            _notificationService = notificationService;
             _logger = logger;
         }
 
@@ -86,6 +89,17 @@ namespace TambayanCafeAPI.Services
             {
                 DeductInventoryForOrder(order);
                 await _orders.InsertOneAsync(order);
+
+                // 🔔 NEW: Create notification for new order
+                var notification = new Notification
+                {
+                    Message = $"🧾 New order #{order.OrderNumber} received.",
+                    Type = "info",
+                    Category = "order",
+                    RelatedId = order.Id,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _notificationService.CreateAsync(notification);
             }
             catch (InvalidOperationException ex)
             {
