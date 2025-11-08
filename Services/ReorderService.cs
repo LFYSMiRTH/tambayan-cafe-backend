@@ -1,10 +1,9 @@
-﻿// Services/ReorderService.cs
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using MongoDB.Bson;
 using MongoDB.Driver;
+using MongoDB.Bson;
 using TambayanCafeAPI.Models;
 
 namespace TambayanCafeAPI.Services
@@ -20,20 +19,24 @@ namespace TambayanCafeAPI.Services
             _logger = logger;
         }
 
-        /// <summary>
-        /// Checks for low-stock items with auto-reorder enabled and replenishes by 10 pcs.
-        /// </summary>
         public async Task CheckAndReorderAsync()
         {
-            var filter = Builders<InventoryItem>.Filter.Where(i =>
-                i.CurrentStock <= i.ReorderLevel &&
-                i.IsAutoReorderEnabled == true);
+            // ✅ Final fix: PascalCase field names + BsonDocument $expr (v2.7+ compatible)
+            var filter = new BsonDocumentFilterDefinition<InventoryItem>(
+                new BsonDocument("$expr",
+                    new BsonDocument("$lte",
+                        new BsonArray { "$CurrentStock", "$ReorderLevel" })));
 
             var lowStockItems = await _inventory.Find(filter).ToListAsync();
 
+            if (lowStockItems.Count == 0)
+            {
+                _logger.LogDebug("🔍 [2m] No items below reorder level.");
+                return;
+            }
+
             foreach (var item in lowStockItems)
             {
-                // 🔥 Fixed: 10 pcs auto-replenishment (no LastReorderedAt)
                 const int reorderAmount = 10;
 
                 var update = Builders<InventoryItem>.Update
@@ -47,7 +50,7 @@ namespace TambayanCafeAPI.Services
                 {
                     var newStock = item.CurrentStock + reorderAmount;
                     _logger.LogInformation(
-                        "✅ Auto-reordered: {Name} — +{Qty} {Unit} (ReorderLevel: {ReorderLevel}, New Stock: {NewStock})",
+                        "✅ AUTO-REORDERED: {Name} — +{Qty} {Unit} (ReorderLevel: {ReorderLevel}, New Stock: {NewStock})",
                         item.Name, reorderAmount, item.Unit, item.ReorderLevel, newStock);
                 }
             }
