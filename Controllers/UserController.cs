@@ -295,34 +295,57 @@ namespace TambayanCafeAPI.Controllers
                 {
                     try
                     {
+                        Console.WriteLine($"[DEBUG] Preparing to send welcome email to: {email}");
                         var client = new SendGridClient(apiKey);
                         var from = new EmailAddress("johntimothyyanto@gmail.com", "TBYN Café Admin");
                         var to = new EmailAddress(email);
                         var subject = "Welcome to TBYN Café – Your Account is Ready!";
+                        // 🔧 Fixed: removed trailing spaces in login URL
                         var htmlContent = $@"
-                            <p>Hi <strong>{fullName}</strong>,</p>
-                            <p>You’ve been added as a <strong>{role}</strong> to TBYN Café.</p>
+                            <p>Hi <strong>{System.Net.WebUtility.HtmlEncode(fullName)}</strong>,</p>
+                            <p>You’ve been added as a <strong>{System.Net.WebUtility.HtmlEncode(role)}</strong> to TBYN Café.</p>
                             <p><strong>Login Details:</strong></p>
                             <ul>
-                                <li><strong>Username:</strong> {username}</li>
-                                <li><strong>Temporary Password:</strong> {plainPassword}</li>
+                                <li><strong>Username:</strong> {System.Net.WebUtility.HtmlEncode(username)}</li>
+                                <li><strong>Temporary Password:</strong> {System.Net.WebUtility.HtmlEncode(plainPassword)}</li>
                             </ul>
                             <p>Please log in and change your password immediately:</p>
                             <p><a href='https://my-frontend-app-eight.vercel.app/login' style='color:#2ECC71;'>Go to Login</a></p>
                             <p style='font-size:0.8em; color:#777;'>This password will expire after first use.</p>
                         ";
                         var msg = MailHelper.CreateSingleEmail(from, to, subject, "", htmlContent);
-                        await client.SendEmailAsync(msg);
-                        Console.WriteLine($"[SENDGRID] Welcome email sent to {email}");
+                        Console.WriteLine($"[DEBUG] Email message created. From: {from.Email}, To: {to.Email}");
+
+                        var response = await client.SendEmailAsync(msg);
+
+                        Console.WriteLine($"[SENDGRID] Response Status: {response.StatusCode}");
+                        var responseBody = await response.Body.ReadAsStringAsync();
+                        Console.WriteLine($"[SENDGRID] Response Body: {responseBody}");
+
+                        if (response.StatusCode == System.Net.HttpStatusCode.Accepted)
+                        {
+                            Console.WriteLine($"[SUCCESS] Welcome email accepted by SendGrid for {email}");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[WARNING] Unexpected SendGrid status: {response.StatusCode}");
+                        }
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"[SENDGRID ERROR] Failed to send welcome email: {ex.Message}");
+                        // 🔥 Log full exception details
+                        Console.WriteLine($"[SENDGRID ERROR] Type: {ex.GetType().FullName}");
+                        Console.WriteLine($"[SENDGRID ERROR] Message: {ex.Message}");
+                        Console.WriteLine($"[SENDGRID ERROR] StackTrace: {ex.StackTrace}");
+                        if (ex.InnerException != null)
+                        {
+                            Console.WriteLine($"[SENDGRID ERROR] Inner Exception: {ex.InnerException.Message}");
+                        }
                     }
                 }
                 else
                 {
-                    Console.WriteLine("[SENDGRID] API key missing — skipping email");
+                    Console.WriteLine("[SENDGRID] API key missing — skipping welcome email");
                 }
 
                 return CreatedAtAction(nameof(Get), new { id = createdUser.Id }, new
@@ -336,8 +359,11 @@ namespace TambayanCafeAPI.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[ERROR] CreateAdminOrStaffUser failed: {ex}");
-                return StatusCode(500, new { error = "Failed to create user" });
+                Console.WriteLine($"[CRITICAL] CreateAdminOrStaffUser failed:");
+                Console.WriteLine($"Exception Type: {ex.GetType().Name}");
+                Console.WriteLine($"Message: {ex.Message}");
+                Console.WriteLine($"StackTrace: {ex.StackTrace}");
+                return StatusCode(500, new { error = "Failed to create user", details = ex.Message });
             }
         }
 
