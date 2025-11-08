@@ -3,6 +3,9 @@ using TambayanCafeAPI.Services;
 using TambayanCafeAPI.Models;
 using System.Threading.Tasks;
 using System;
+using System.Linq;
+using MongoDB.Driver;
+using MongoDB.Bson;
 
 namespace TambayanCafeSystem.Controllers
 {
@@ -12,15 +15,18 @@ namespace TambayanCafeSystem.Controllers
     {
         private readonly OrderService _orderService;
         private readonly InventoryService _inventoryService;
+        private readonly ProductService _productService;
         private readonly NotificationService _notificationService;
 
         public DashboardController(
             OrderService orderService,
             InventoryService inventoryService,
+            ProductService productService,
             NotificationService notificationService)
         {
             _orderService = orderService;
             _inventoryService = inventoryService;
+            _productService = productService;
             _notificationService = notificationService;
         }
 
@@ -35,16 +41,20 @@ namespace TambayanCafeSystem.Controllers
                 var totalOrders = _orderService.GetTotalCount();
                 var pendingOrders = _orderService.GetPendingCount();
                 var totalRevenue = _orderService.GetTotalRevenue();
-                var lowStockCount = await GetLowStockItemCountAsync();
+
+                var lowStockInventoryCount = await GetLowStockInventoryCountAsync();
+                var lowStockProductCount = await GetLowStockProductCountAsync(); // ✅ Updated method
+
+                var totalLowStockAlerts = lowStockInventoryCount + lowStockProductCount;
+
                 var unreadNotifications = await _notificationService.GetUnreadCountAsync();
 
-                // ✅ FIXED: Renamed "lowStockCount" → "lowStockAlerts" to match frontend expectation
                 return Ok(new
                 {
                     totalOrders,
                     pendingOrders,
                     totalRevenue,
-                    lowStockAlerts = lowStockCount, // 🔑 KEY FIX
+                    lowStockAlerts = totalLowStockAlerts, // ✅ Now includes both!
                     unreadNotifications
                 });
             }
@@ -55,15 +65,63 @@ namespace TambayanCafeSystem.Controllers
         }
 
         /// <summary>
-        /// Get list of unread notifications (for bell icon or toast)
+        /// Get list of unread notifications (including dynamic low-stock alerts)
         /// </summary>
         [HttpGet("notifications/unread")]
         public async Task<IActionResult> GetUnreadNotifications()
         {
             try
             {
-                var notifications = await _notificationService.GetUnreadAsync();
-                return Ok(notifications);
+                var persistentNotifications = await _notificationService.GetUnreadAsync();
+                var lowStockNotifications = new System.Collections.Generic.List<Notification>();
+
+                // a. Low-stock INGREDIENTS (currentStock <= reorderLevel)
+                var lowStockIngredients = await _inventoryService.GetCollection()
+                    .Find(Builders<InventoryItem>.Filter.Lte("currentStock", "reorderLevel"))
+                    .Limit(10)
+                    .ToListAsync();
+
+                foreach (var item in lowStockIngredients)
+                {
+                    lowStockNotifications.Add(new Notification
+                    {
+                        Id = $"inv-{item.Id}-low",
+                        Message = $"⚠️ Low Stock: Ingredient '{item.Name}' is at {item.CurrentStock} (reorder at {item.ReorderLevel})",
+                        Type = "warning",
+                        CreatedAt = DateTime.UtcNow,
+                        IsRead = false
+                    });
+                }
+
+                // b. Low-stock PRODUCTS (stockQuantity <= lowStockThreshold AND isAvailable == true)
+                var lowStockProducts = await _productService.GetCollection()
+                    .Find(Builders<Product>.Filter.And(
+                        Builders<Product>.Filter.Lte("stockQuantity", "lowStockThreshold"),
+                        Builders<Product>.Filter.Eq("isAvailable", true)
+                    ))
+                    .Limit(10)
+                    .ToListAsync();
+
+                foreach (var item in lowStockProducts)
+                {
+                    lowStockNotifications.Add(new Notification
+                    {
+                        Id = $"prod-{item.Id}-low",
+                        Message = $"⚠️ Low Stock: Product '{item.Name}' has {item.StockQuantity} left (threshold: {item.LowStockThreshold})",
+                        Type = "warning",
+                        CreatedAt = DateTime.UtcNow,
+                        IsRead = false
+                    });
+                }
+
+                var allNotifications = persistentNotifications
+                    .Where(n => !n.Id.StartsWith("inv-") && !n.Id.StartsWith("prod-"))
+                    .Concat(lowStockNotifications)
+                    .OrderByDescending(n => n.CreatedAt)
+                    .Take(20)
+                    .ToList();
+
+                return Ok(allNotifications);
             }
             catch (Exception ex)
             {
@@ -92,17 +150,24 @@ namespace TambayanCafeSystem.Controllers
         }
 
         /// <summary>
-        /// Helper: Count how many inventory items are below reorder level
+        /// Count inventory items where currentStock <= reorderLevel
         /// </summary>
-        private async Task<long> GetLowStockItemCountAsync()
+        private async Task<long> GetLowStockInventoryCountAsync()
         {
-            // 🔥 Use same logic as ReorderService, but just count
-            var filter = new MongoDB.Driver.BsonDocumentFilterDefinition<InventoryItem>(
-                new MongoDB.Bson.BsonDocument("$expr",
-                    new MongoDB.Bson.BsonDocument("$lte",
-                        new MongoDB.Bson.BsonArray { "$CurrentStock", "$ReorderLevel" })));
-
+            var filter = Builders<InventoryItem>.Filter.Lte("currentStock", "reorderLevel");
             return await _inventoryService.GetCollection().CountDocumentsAsync(filter);
+        }
+
+        /// <summary>
+        /// Count products where stockQuantity <= lowStockThreshold AND isAvailable == true
+        /// </summary>
+        private async Task<long> GetLowStockProductCountAsync()
+        {
+            var filter = Builders<Product>.Filter.And(
+                Builders<Product>.Filter.Lte("stockQuantity", "lowStockThreshold"),
+                Builders<Product>.Filter.Eq("isAvailable", true)
+            );
+            return await _productService.GetCollection().CountDocumentsAsync(filter);
         }
     }
 }
