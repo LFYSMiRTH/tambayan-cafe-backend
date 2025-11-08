@@ -38,14 +38,14 @@ namespace TambayanCafeSystem.Controllers
                 var lowStockCount = await GetLowStockItemCountAsync();
                 var unreadNotifications = await _notificationService.GetUnreadCountAsync();
 
+                // ✅ FIXED: Renamed "lowStockCount" → "lowStockAlerts" to match frontend expectation
                 return Ok(new
                 {
                     totalOrders,
                     pendingOrders,
                     totalRevenue,
-                    lowStockCount,
-                    unreadNotifications,
-                    // Optional enhancement: top-selling item or recent order
+                    lowStockAlerts = lowStockCount, // 🔑 KEY FIX
+                    unreadNotifications
                 });
             }
             catch (Exception ex)
