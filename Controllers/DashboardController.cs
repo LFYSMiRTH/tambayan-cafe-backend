@@ -17,17 +17,20 @@ namespace TambayanCafeSystem.Controllers
         private readonly InventoryService _inventoryService;
         private readonly ProductService _productService;
         private readonly NotificationService _notificationService;
+        private readonly ReportService _reportService; // 👈 ADDED
 
         public DashboardController(
             OrderService orderService,
             InventoryService inventoryService,
             ProductService productService,
-            NotificationService notificationService)
+            NotificationService notificationService,
+            ReportService reportService) // 👈 ADDED
         {
             _orderService = orderService;
             _inventoryService = inventoryService;
             _productService = productService;
             _notificationService = notificationService;
+            _reportService = reportService; // 👈 ADDED
         }
 
         [HttpGet("stats")]
@@ -146,6 +149,33 @@ namespace TambayanCafeSystem.Controllers
         {
             return await _productService.GetCollection()
                 .CountDocumentsAsync(p => p.StockQuantity <= p.LowStockThreshold && p.IsAvailable);
+        }
+
+        // 👇👇👇 NEW METHOD — ADDED BELOW (NO EXISTING CODE CHANGED) 👇👇👇
+        [HttpGet("sales-trends")]
+        public async Task<IActionResult> GetSalesTrends([FromQuery] string period = "yearly")
+        {
+            // Normalize input
+            var normalizedPeriod = period?.ToLower() ?? "yearly";
+            if (normalizedPeriod is not ("yearly" or "monthly" or "weekly"))
+                normalizedPeriod = "yearly";
+
+            try
+            {
+                var current = await _reportService.GetSalesTrendDataAsync(normalizedPeriod, isPrevious: false);
+                var previous = await _reportService.GetSalesTrendDataAsync(normalizedPeriod, isPrevious: true);
+
+                return Ok(new
+                {
+                    current,
+                    previous,
+                    period = normalizedPeriod
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "Sales trend calculation failed.", details = ex.Message });
+            }
         }
     }
 }

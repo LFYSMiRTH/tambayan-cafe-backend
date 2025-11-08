@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MongoDB.Driver;
 using TambayanCafeAPI.Models;
+using TambayanCafeAPI.Helpers; // 👈 ADDED
 
 namespace TambayanCafeAPI.Services
 {
@@ -86,6 +87,55 @@ namespace TambayanCafeAPI.Services
             }).ToList();
 
             return new InventoryReportResponse { Inventory = reportItems };
+        }
+
+        // 👇👇👇 NEW METHOD — ADDED BELOW (NO EXISTING CODE CHANGED) 👇👇👇
+        public async Task<List<SalesTrendDto>> GetSalesTrendDataAsync(string period, bool isPrevious)
+        {
+            var now = DateTime.UtcNow;
+
+            // Determine date range based on period and isPrevious
+            (DateTime startDate, DateTime endDate) = period.ToLower() switch
+            {
+                "weekly" => isPrevious
+                    ? (now.AddDays(-14).StartOfWeek(), now.AddDays(-7).EndOfWeek())
+                    : (now.AddDays(-7).StartOfWeek(), now.EndOfWeek()),
+
+                "monthly" => isPrevious
+                    ? (now.AddMonths(-2).StartOfMonth(), now.AddMonths(-1).EndOfMonth())
+                    : (now.AddMonths(-1).StartOfMonth(), now.EndOfMonth()),
+
+                _ => isPrevious // yearly
+                    ? (new DateTime(now.Year - 2, 1, 1), new DateTime(now.Year - 1, 12, 31, 23, 59, 59, 999))
+                    : (new DateTime(now.Year - 1, 1, 1), new DateTime(now.Year, 12, 31, 23, 59, 59, 999))
+            };
+
+            // Fetch all orders (you already have this service method)
+            var allOrders = await _orderService.GetAllOrdersAsync();
+
+            // Filter by date range — using CreatedAt (match your Order model)
+            var filteredOrders = allOrders
+                .Where(o => o.CreatedAt >= startDate && o.CreatedAt <= endDate)
+                .ToList();
+
+            // Group by time unit
+            var grouped = filteredOrders
+                .GroupBy(o => period.ToLower() switch
+                {
+                    "weekly" => o.CreatedAt.StartOfWeek().ToString("MM/dd"),
+                    "monthly" => o.CreatedAt.ToString("MMM yyyy"),
+                    "yearly" => o.CreatedAt.Year.ToString(),
+                    _ => o.CreatedAt.ToString("yyyy-MM-dd")
+                })
+                .Select(g => new SalesTrendDto
+                {
+                    Label = g.Key,
+                    Value = g.Sum(o => o.TotalAmount)
+                })
+                .OrderBy(x => x.Label)
+                .ToList();
+
+            return grouped;
         }
     }
 }

@@ -81,6 +81,9 @@ builder.Services.AddSingleton<IReportService>(sp =>
     return new ReportService(orderService, inventoryService, productService, database);
 });
 
+// 👈 ADDED: Register concrete ReportService for direct injection (e.g., in DashboardController)
+builder.Services.AddScoped<ReportService>();
+
 // 🔥 Background service (still after scoped services)
 builder.Services.AddHostedService<ReorderBackgroundService>();
 
@@ -98,7 +101,7 @@ builder.Services.AddCors(options =>
         policy.SetIsOriginAllowed(origin =>
         {
             var cleanOrigin = origin?.Trim();
-            if (string.Equals(cleanOrigin, "https://my-frontend-app-eight.vercel.app      ", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(cleanOrigin, "https://my-frontend-app-eight.vercel.app        ", StringComparison.OrdinalIgnoreCase))
                 return true;
             if (!string.IsNullOrEmpty(cleanOrigin) &&
                 cleanOrigin.StartsWith("https://my-frontend-app-", StringComparison.OrdinalIgnoreCase) &&
