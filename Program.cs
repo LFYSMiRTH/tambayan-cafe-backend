@@ -76,9 +76,9 @@ builder.Services.AddSingleton<IReportService>(sp =>
     return new ReportService(orderService, inventoryService, productService, database);
 });
 
-// Register loggers explicitly if needed, or rely on built-in DI for ILogger<T>
-// builder.Services.AddScoped<ILogger<OrderService>, Logger<OrderService>>();
-// builder.Services.AddScoped<ILogger<CustomerController>, Logger<CustomerController>>();
+// 🔥 NEW: Register auto-reorder services
+builder.Services.AddScoped<ReorderService>();
+builder.Services.AddHostedService<ReorderBackgroundService>();
 
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
@@ -94,7 +94,7 @@ builder.Services.AddCors(options =>
         policy.SetIsOriginAllowed(origin =>
         {
             var cleanOrigin = origin?.Trim();
-            if (string.Equals(cleanOrigin, "https://my-frontend-app-eight.vercel.app  ", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(cleanOrigin, "https://my-frontend-app-eight.vercel.app    ", StringComparison.OrdinalIgnoreCase))
                 return true;
             if (!string.IsNullOrEmpty(cleanOrigin) &&
                 cleanOrigin.StartsWith("https://my-frontend-app-", StringComparison.OrdinalIgnoreCase) &&

@@ -9,10 +9,13 @@ namespace TambayanCafeAPI.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public string Id { get; set; } = string.Empty;
 
-        public string Name { get; set; } = string.Empty;          
+        public string Name { get; set; } = string.Empty;
         public string Category { get; set; } = "General";
-        public int CurrentStock { get; set; }                    
+        public int CurrentStock { get; set; }
         public string Unit { get; set; } = "unit";
         public int ReorderLevel { get; set; } = 0;
+
+        [BsonElement("isAutoReorderEnabled")]
+        public bool IsAutoReorderEnabled { get; set; } = false;
     }
 }
