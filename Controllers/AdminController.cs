@@ -205,12 +205,36 @@ namespace TambayanCafeSystem.Controllers
                 return Conflict(new { error = "EmailExists", message = "Email already registered." });
             }
 
-            // ✅ HASH PASSWORD BEFORE SAVING
-            user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
+            // ✅ GENERATE A STRONG TEMPORARY PASSWORD
+            string GenerateStrongPassword()
+            {
+                const string upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+                const string lower = "abcdefghijklmnopqrstuvwxyz";
+                const string digits = "0123456789";
+                const string symbols = "!@#$%^&*";
+                var all = upper + lower + digits + symbols;
+
+                var password = new char[12];
+                var rng = new Random();
+                password[0] = upper[rng.Next(upper.Length)];
+                password[1] = lower[rng.Next(lower.Length)];
+                password[2] = digits[rng.Next(digits.Length)];
+                password[3] = symbols[rng.Next(symbols.Length)];
+
+                for (int i = 4; i < 12; i++)
+                    password[i] = all[rng.Next(all.Length)];
+
+                return new string(password.OrderBy(_ => Guid.NewGuid()).ToArray());
+            }
+
+            var temporaryPassword = GenerateStrongPassword();
+
+            // ✅ HASH THE TEMPORARY PASSWORD BEFORE SAVING
+            user.Password = BCrypt.Net.BCrypt.HashPassword(temporaryPassword);
             user.Id = null;
             var createdUser = _userService.Create(user);
 
-            // ✅ ADD WELCOME EMAIL LOGIC HERE
+            // ✅ SEND WELCOME EMAIL WITH THE TEMPORARY PASSWORD
             var apiKey = Environment.GetEnvironmentVariable("SENDGRID_API_KEY");
             if (!string.IsNullOrEmpty(apiKey))
             {
@@ -226,9 +250,9 @@ namespace TambayanCafeSystem.Controllers
                         <p><strong>Login Details:</strong></p>
                         <ul>
                             <li><strong>Username:</strong> {System.Net.WebUtility.HtmlEncode(createdUser.Username)}</li>
-                            <li><strong>Password:</strong> (as provided during creation)</li>
+                            <li><strong>Temporary Password:</strong> {System.Net.WebUtility.HtmlEncode(temporaryPassword)}</li>
                         </ul>
-                        <p>Please log in and change your password if needed:</p>
+                        <p><strong>Please log in and change your password immediately!</strong></p>
                         <p><a href='https://my-frontend-app-eight.vercel.app/login' style='color:#2ECC71;'>Go to Login</a></p>
                     ";
                     var msg = SendGrid.Helpers.Mail.MailHelper.CreateSingleEmail(from, to, subject, "", htmlContent);
