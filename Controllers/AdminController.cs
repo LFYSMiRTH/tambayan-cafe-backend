@@ -181,7 +181,7 @@ namespace TambayanCafeSystem.Controllers
         }
 
         [HttpPost("users")]
-        public IActionResult CreateUser([FromBody] User user)
+        public async Task<IActionResult> CreateUser([FromBody] User user)
         {
             if (user == null)
                 return BadRequest("User data is required.");
@@ -205,8 +205,41 @@ namespace TambayanCafeSystem.Controllers
                 return Conflict(new { error = "EmailExists", message = "Email already registered." });
             }
 
+            // ✅ HASH PASSWORD BEFORE SAVING
+            user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
             user.Id = null;
             var createdUser = _userService.Create(user);
+
+            // ✅ ADD WELCOME EMAIL LOGIC HERE
+            var apiKey = Environment.GetEnvironmentVariable("SENDGRID_API_KEY");
+            if (!string.IsNullOrEmpty(apiKey))
+            {
+                try
+                {
+                    var client = new SendGrid.SendGridClient(apiKey);
+                    var from = new SendGrid.Helpers.Mail.EmailAddress("johntimothyyanto@gmail.com", "TBYN Café Admin");
+                    var to = new SendGrid.Helpers.Mail.EmailAddress(createdUser.Email);
+                    var subject = "Welcome to TBYN Café – Your Account is Ready!";
+                    var htmlContent = $@"
+                        <p>Hi <strong>{System.Net.WebUtility.HtmlEncode(createdUser.Name ?? createdUser.Username)}</strong>,</p>
+                        <p>You've been added as a <strong>{System.Net.WebUtility.HtmlEncode(createdUser.Role)}</strong> to TBYN Café.</p>
+                        <p><strong>Login Details:</strong></p>
+                        <ul>
+                            <li><strong>Username:</strong> {System.Net.WebUtility.HtmlEncode(createdUser.Username)}</li>
+                            <li><strong>Password:</strong> (as provided during creation)</li>
+                        </ul>
+                        <p>Please log in and change your password if needed:</p>
+                        <p><a href='https://my-frontend-app-eight.vercel.app/login' style='color:#2ECC71;'>Go to Login</a></p>
+                    ";
+                    var msg = SendGrid.Helpers.Mail.MailHelper.CreateSingleEmail(from, to, subject, "", htmlContent);
+                    await client.SendEmailAsync(msg);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[SENDGRID] Failed to send welcome email: {ex.Message}");
+                }
+            }
+
             return Ok(createdUser);
         }
 
