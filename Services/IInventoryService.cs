@@ -7,5 +7,8 @@ namespace TambayanCafeAPI.Services
     public interface IInventoryService
     {
         Task<List<InventoryItem>> GetAllAsync();
+
+        Task<IEnumerable<InventoryItem>> GetAllInventoryItemsAsync(); 
+        Task<IEnumerable<InventoryItem>> GetLowStockItemsAsync(); 
     }
 }

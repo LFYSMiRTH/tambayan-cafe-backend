@@ -44,5 +44,15 @@ namespace TambayanCafeAPI.Services
             var filter = Builders<InventoryItem>.Filter.Eq("_id", objectId);
             return _inventory.Find(filter).FirstOrDefault();
         }
+
+        // --- Methods needed by StaffController ---
+        public async Task<IEnumerable<InventoryItem>> GetLowStockItemsAsync()
+        {
+            int lowStockThreshold = 5;
+            var filter = Builders<InventoryItem>.Filter.Lt(ii => ii.CurrentStock, lowStockThreshold);
+
+            var lowStockItems = await _inventory.Find(filter).ToListAsync();
+            return lowStockItems;
+        }
     }
 }
