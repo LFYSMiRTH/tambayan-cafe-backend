@@ -59,8 +59,7 @@ builder.Services.AddSingleton<IMongoDatabase>(sp =>
 // ✅ Register services with logging — ORDER MATTERS!
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<ProductService>();
-builder.Services.AddScoped<InventoryService>();
-builder.Services.AddScoped<SupplierService>();
+builder.Services.AddScoped<InventoryService>(); // Register the concrete service first
 
 // 🔥 NEW: Register NotificationService BEFORE dependent services
 builder.Services.AddScoped<NotificationService>();
@@ -71,6 +70,10 @@ builder.Services.AddScoped<OrderService>(); // Now depends on NotificationServic
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IMenuItemService, ProductService>();
+
+// --- ADD THIS LINE ---
+builder.Services.AddScoped<IInventoryService, InventoryService>(); // Register the interface mapping
+// --- END ADD ---
 
 builder.Services.AddSingleton<IReportService>(sp =>
 {
@@ -101,7 +104,7 @@ builder.Services.AddCors(options =>
         policy.SetIsOriginAllowed(origin =>
         {
             var cleanOrigin = origin?.Trim();
-            if (string.Equals(cleanOrigin, "https://my-frontend-app-eight.vercel.app        ", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(cleanOrigin, "https://my-frontend-app-eight.vercel.app          ", StringComparison.OrdinalIgnoreCase))
                 return true;
             if (!string.IsNullOrEmpty(cleanOrigin) &&
                 cleanOrigin.StartsWith("https://my-frontend-app-", StringComparison.OrdinalIgnoreCase) &&

@@ -7,7 +7,7 @@ using MongoDB.Bson;
 
 namespace TambayanCafeAPI.Services
 {
-    public class InventoryService
+    public class InventoryService : IInventoryService
     {
         private readonly IMongoCollection<InventoryItem> _inventory;
 
@@ -19,8 +19,11 @@ namespace TambayanCafeAPI.Services
         public List<InventoryItem> GetAll() =>
             _inventory.Find(_ => true).ToList();
 
-        public async Task<List<InventoryItem>> GetAllInventoryItemsAsync() =>
+        public async Task<List<InventoryItem>> GetAllAsync() =>
             await _inventory.Find(_ => true).ToListAsync();
+
+        public async Task<IEnumerable<InventoryItem>> GetAllInventoryItemsAsync() =>
+            await _inventory.Find(_ => true).ToListAsync(); 
 
         public void Create(InventoryItem item)
         {
@@ -45,7 +48,6 @@ namespace TambayanCafeAPI.Services
             return _inventory.Find(filter).FirstOrDefault();
         }
 
-        // --- Methods needed by StaffController ---
         public async Task<IEnumerable<InventoryItem>> GetLowStockItemsAsync()
         {
             int lowStockThreshold = 5;

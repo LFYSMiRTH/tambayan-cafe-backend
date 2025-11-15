@@ -3,37 +3,37 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using TambayanCafeAPI.Models; // Adjust namespace as needed
-using TambayanCafeAPI.Services; // Adjust namespace as needed
-using TambayanCafeSystem.Services; // Adjust namespace as needed
+using TambayanCafeAPI.Models; 
+using TambayanCafeAPI.Services;
+using TambayanCafeSystem.Services;
 using System.Security.Claims;
 using Microsoft.Extensions.Logging;
+using MongoDB.Bson; 
 
 namespace TambayanCafeSystem.Controllers
 {
     [ApiController]
-    [Route("api/staff")] // Base route for staff-specific endpoints
-    [Authorize(Roles = "staff")] // Ensure only users with 'staff' role can access these endpoints
+    [Route("api/staff")] 
+    [Authorize(Roles = "staff")] 
     public class StaffController : ControllerBase
     {
         private readonly IUserService _userService;
         private readonly IOrderService _orderService;
         private readonly IInventoryService _inventoryService;
-        private readonly ILogger<StaffController> _logger; // Optional: Add logging
+        private readonly ILogger<StaffController> _logger; 
 
         public StaffController(
             IUserService userService,
             IOrderService orderService,
             IInventoryService inventoryService,
-            ILogger<StaffController> logger) // Inject logger
+            ILogger<StaffController> logger) 
         {
             _userService = userService;
             _orderService = orderService;
             _inventoryService = inventoryService;
-            _logger = logger; // Assign logger
+            _logger = logger; 
         }
 
-        // This helper validates the role claim (though Authorize attribute should handle it)
         private IActionResult ValidateStaffRole()
         {
             var role = User.FindFirst(ClaimTypes.Role)?.Value;
@@ -42,7 +42,7 @@ namespace TambayanCafeSystem.Controllers
                 _logger.LogWarning("Access attempt to StaffController by non-staff user with role: {Role}", role);
                 return Unauthorized(new { message = "Access denied. Staff role required." });
             }
-            return null; // Return null if validation passes
+            return null;
         }
 
         // GET api/staff/dashboard
@@ -75,9 +75,6 @@ namespace TambayanCafeSystem.Controllers
 
             try
             {
-                // Call a service method to fetch orders for staff
-                // You need to implement GetOrdersForStaffAsync in your service
-                // The service should filter by status if provided (e.g., "New,Preparing,Ready")
                 var orders = await _orderService.GetOrdersForStaffAsync(limit, status);
                 return Ok(orders);
             }
@@ -97,8 +94,6 @@ namespace TambayanCafeSystem.Controllers
 
             try
             {
-                // Call a service method to fetch all inventory items
-                // You need to implement GetAllInventoryItemsAsync in your service
                 var inventory = await _inventoryService.GetAllInventoryItemsAsync();
                 return Ok(inventory);
             }
@@ -207,10 +202,7 @@ namespace TambayanCafeSystem.Controllers
 
             try
             {
-                // Implement logic to find all 'Ready' orders and send them to print
-                // Example: var readyOrders = await _orderService.GetOrdersByStatusAsync("Ready");
-                // foreach(var order in readyOrders) { await _printerService.PrintOrderReceiptAsync(order.Id); }
-                // For now, just return success as a placeholder
+                
                 _logger.LogInformation("Print all ready orders request received by staff ID {StaffId}", User.FindFirst("id")?.Value);
 
                 return Ok(new { message = "All ready orders sent to printer." });
@@ -237,9 +229,6 @@ namespace TambayanCafeSystem.Controllers
 
             try
             {
-                // Implement logic to send an alert (e.g., email, notification) to admin
-                // This could involve calling an email service or a notification service
-                // For now, just log it and return success
                 _logger.LogWarning("Low stock alert sent for item '{ItemName}' by staff ID {StaffId}", alertDto.ItemName, User.FindFirst("id")?.Value);
 
                 // Example: await _notificationService.SendLowStockAlertAsync(alertDto.ItemName);
@@ -261,9 +250,6 @@ namespace TambayanCafeSystem.Controllers
 
             try
             {
-                // Implement logic to fetch notifications for staff
-                // This could be from a database table or a message queue
-                // For now, return some example notifications
                 var notifications = new[]
                 {
                     new { message = "Order #201 is now ready for pickup!", createdAt = DateTime.UtcNow.AddMinutes(-2) },
@@ -280,7 +266,6 @@ namespace TambayanCafeSystem.Controllers
             }
         }
 
-        // GET api/staff/profile (Example endpoint for staff profile, similar to customer)
         [HttpGet("profile")]
         public async Task<IActionResult> GetProfile()
         {
