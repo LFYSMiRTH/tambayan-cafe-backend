@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 namespace TambayanCafeAPI.Services
 {
+    // The class already implements IUserService, which is good
     public class UserService : IUserService
     {
         private readonly IMongoCollection<User> _users;
@@ -89,6 +90,7 @@ namespace TambayanCafeAPI.Services
             _users.DeleteOne(u => u.Id == id);
         }
 
+        // Implement the method required by IUserService interface
         public async Task<User> GetUserByIdAsync(string id)
         {
             if (string.IsNullOrWhiteSpace(id) || !ObjectId.TryParse(id, out _))

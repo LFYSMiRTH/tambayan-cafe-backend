@@ -12,7 +12,6 @@ System.Net.ServicePointManager.SecurityProtocol =
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 🔐 JWT Authentication
 builder.Services.AddAuthentication("Bearer")
     .AddJwtBearer("Bearer", options =>
     {
@@ -30,7 +29,7 @@ builder.Services.AddAuthentication("Bearer")
             ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "TambayanCafeAPI",
             ValidAudience = builder.Configuration["Jwt:Audience"] ?? "TambayanCafeClient",
             IssuerSigningKey = new SymmetricSecurityKey(key),
-            ClockSkew = TimeSpan.Zero, // Optional: strict expiration
+            ClockSkew = TimeSpan.Zero,
         };
     });
 
@@ -49,12 +48,10 @@ if (string.IsNullOrEmpty(connectionString))
 if (string.IsNullOrEmpty(databaseName))
     throw new InvalidOperationException("MongoDB DatabaseName is missing.");
 
-// Attempt to create the client and test connection early
 try
 {
     var client = new MongoClient(connectionString);
     var database = client.GetDatabase(databaseName);
-    // Test the connection
     await database.RunCommandAsync((Command<BsonDocument>)"{ ping: 1 }");
     Console.WriteLine("[INFO] MongoDB connection established successfully.");
 
@@ -67,24 +64,17 @@ catch (Exception ex)
     throw;
 }
 
-// ✅ Register services with logging — ORDER MATTERS!
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<ProductService>();
-builder.Services.AddScoped<InventoryService>(); // Register the concrete service first
+builder.Services.AddScoped<InventoryService>();
+builder.Services.AddScoped<SupplierService>();
 
-// 🔥 NEW: Register NotificationService BEFORE dependent services
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<ReorderService>();
-builder.Services.AddScoped<OrderService>(); // Now depends on NotificationService
-
-// 🔥 Keep interfaces for DI
+builder.Services.AddScoped<OrderService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
-builder.Services.AddScoped<IMenuItemService, ProductService>();
-
-// --- ADD THIS LINE ---
-builder.Services.AddScoped<IInventoryService, InventoryService>(); // Register the interface mapping
-// --- END ADD ---
+builder.Services.AddScoped<ISupplierService, SupplierService>();
 
 builder.Services.AddSingleton<IReportService>(sp =>
 {
@@ -95,10 +85,8 @@ builder.Services.AddSingleton<IReportService>(sp =>
     return new ReportService(orderService, inventoryService, productService, database);
 });
 
-// 👈 ADDED: Register concrete ReportService for direct injection (e.g., in DashboardController)
 builder.Services.AddScoped<ReportService>();
 
-// 🔥 Background service (still after scoped services)
 builder.Services.AddHostedService<ReorderBackgroundService>();
 
 builder.Services.ConfigureHttpJsonOptions(options =>
@@ -107,7 +95,6 @@ builder.Services.ConfigureHttpJsonOptions(options =>
         System.Text.Json.JsonNamingPolicy.CamelCase;
 });
 
-// ✅ CORRECTED CORS (NO TRAILING SPACES!)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -132,7 +119,7 @@ builder.Services.AddCors(options =>
         })
         .AllowAnyHeader()
         .AllowAnyMethod()
-        .AllowCredentials(); // Optional but safe
+        .AllowCredentials();
     });
 });
 
@@ -150,7 +137,6 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Global error handler - ADDED FOR DEBUGGING
 app.Use(async (context, next) =>
 {
     try
@@ -159,9 +145,7 @@ app.Use(async (context, next) =>
     }
     catch (Exception ex)
     {
-        // Log the full exception details to the console/logs
         Console.WriteLine($"[GLOBAL ERROR] {ex}");
-        // Log the request details for context
         Console.WriteLine($"[REQUEST] {context.Request.Method} {context.Request.Path}");
         Console.WriteLine($"[HEADERS] {string.Join(", ", context.Request.Headers.Select(h => $"{h.Key}={h.Value}"))}");
         if (context.Request.QueryString.HasValue)
@@ -175,7 +159,6 @@ app.Use(async (context, next) =>
             System.Text.Json.JsonSerializer.Serialize(new
             {
                 error = "Internal server error",
-                // Include the actual exception message for debugging - REMOVE IN PRODUCTION
                 details = ex.Message,
                 stackTrace = ex.StackTrace
             })
@@ -185,7 +168,6 @@ app.Use(async (context, next) =>
 
 app.MapControllers();
 
-// Health endpoints
 app.MapGet("/health", () => "Tambayan Café API is live!");
 app.MapGet("/health/db", async (IMongoDatabase database) =>
 {
