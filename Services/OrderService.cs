@@ -319,7 +319,9 @@ namespace TambayanCafeAPI.Services
                 Builders<Order>.Filter.In(o => o.Status, new[] { "Completed", "Served" }) // Adjust statuses as needed
             );
 
-            var filterPending = Builders<Order>.Filter.In(o => o.Status, new[] { "New", "Preparing" }); // Adjust statuses as needed
+            // --- UPDATE THE PENDING FILTER TO INCLUDE 'Pending' ---
+            var filterPending = Builders<Order>.Filter.In(o => o.Status, new[] { "New", "Preparing", "Pending" }); // Include 'Pending'
+            // --- END UPDATE ---
 
             var totalOrdersToday = await _orders.CountDocumentsAsync(filterToday);
 
@@ -333,35 +335,23 @@ namespace TambayanCafeAPI.Services
                 .FirstOrDefaultAsync(); // Returns 'decimal'
             // --- END CORRECTED LINE ---
 
-            var pendingOrders = await _orders.CountDocumentsAsync(filterPending);
+            var pendingOrders = await _orders.CountDocumentsAsync(filterPending); // This will now count 'Pending' orders
 
             var lowStockThreshold = 5; // Define this appropriately, maybe as a config value
             var lowStockFilter = Builders<InventoryItem>.Filter.Lt(ii => ii.CurrentStock, lowStockThreshold);
-            // Assuming you have access to the inventory collection here or via _inventoryService
-            // var inventoryCollection = database.GetCollection<InventoryItem>("Inventory"); // You'd need access to database or _inventoryService
-            // var lowStockAlerts = await inventoryCollection.CountDocumentsAsync(lowStockFilter);
-
-            // For now, using a placeholder value for lowStockAlerts
-            // You should implement GetLowStockItemsAsync in InventoryService and use it here
             var lowStockAlerts = 0; // Placeholder - replace with actual count from inventory
 
             return new
             {
                 totalOrdersToday = totalOrdersToday,
                 totalSalesToday = totalSalesToday, // Use the value directly
-                pendingOrders = pendingOrders,
+                pendingOrders = pendingOrders, // This will now include 'Pending' orders
                 lowStockAlerts = lowStockAlerts
             };
         }
 
         public async Task<IEnumerable<Order>> GetOrdersForStaffAsync(int limit, string statusFilter)
         {
-            // Example implementation logic (pseudo-code):
-            // 1. Build a MongoDB filter based on statusFilter (e.g., "New,Preparing,Ready")
-            // 2. Apply the filter and limit to the collection find operation.
-            // 3. Return the list of orders.
-
-            // Example filter logic (adjust based on your Order model and status field):
             var filter = Builders<Order>.Filter.Empty;
             if (!string.IsNullOrEmpty(statusFilter))
             {
