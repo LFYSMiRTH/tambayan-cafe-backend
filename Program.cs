@@ -49,12 +49,23 @@ if (string.IsNullOrEmpty(connectionString))
 if (string.IsNullOrEmpty(databaseName))
     throw new InvalidOperationException("MongoDB DatabaseName is missing.");
 
-builder.Services.AddSingleton<IMongoClient>(_ => new MongoClient(connectionString));
-builder.Services.AddSingleton<IMongoDatabase>(sp =>
+// Attempt to create the client and test connection early
+try
 {
-    var client = sp.GetRequiredService<IMongoClient>();
-    return client.GetDatabase(databaseName);
-});
+    var client = new MongoClient(connectionString);
+    var database = client.GetDatabase(databaseName);
+    // Test the connection
+    await database.RunCommandAsync((Command<BsonDocument>)"{ ping: 1 }");
+    Console.WriteLine("[INFO] MongoDB connection established successfully.");
+
+    builder.Services.AddSingleton<IMongoClient>(client);
+    builder.Services.AddSingleton<IMongoDatabase>(database);
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"[CRITICAL] Failed to connect to MongoDB: {ex.Message}");
+    throw;
+}
 
 // ✅ Register services with logging — ORDER MATTERS!
 builder.Services.AddScoped<UserService>();
@@ -104,7 +115,7 @@ builder.Services.AddCors(options =>
         policy.SetIsOriginAllowed(origin =>
         {
             var cleanOrigin = origin?.Trim();
-            if (string.Equals(cleanOrigin, "https://my-frontend-app-eight.vercel.app          ", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(cleanOrigin, "https://my-frontend-app-eight.vercel.app", StringComparison.OrdinalIgnoreCase))
                 return true;
             if (!string.IsNullOrEmpty(cleanOrigin) &&
                 cleanOrigin.StartsWith("https://my-frontend-app-", StringComparison.OrdinalIgnoreCase) &&
@@ -139,7 +150,7 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Global error handler
+// Global error handler - ADDED FOR DEBUGGING
 app.Use(async (context, next) =>
 {
     try
@@ -148,11 +159,26 @@ app.Use(async (context, next) =>
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"[ERROR] {ex}");
+        // Log the full exception details to the console/logs
+        Console.WriteLine($"[GLOBAL ERROR] {ex}");
+        // Log the request details for context
+        Console.WriteLine($"[REQUEST] {context.Request.Method} {context.Request.Path}");
+        Console.WriteLine($"[HEADERS] {string.Join(", ", context.Request.Headers.Select(h => $"{h.Key}={h.Value}"))}");
+        if (context.Request.QueryString.HasValue)
+        {
+            Console.WriteLine($"[QUERY] {context.Request.QueryString.Value}");
+        }
+
         context.Response.StatusCode = 500;
         context.Response.ContentType = "application/json";
         await context.Response.WriteAsync(
-            System.Text.Json.JsonSerializer.Serialize(new { error = "Internal server error" })
+            System.Text.Json.JsonSerializer.Serialize(new
+            {
+                error = "Internal server error",
+                // Include the actual exception message for debugging - REMOVE IN PRODUCTION
+                details = ex.Message,
+                stackTrace = ex.StackTrace
+            })
         );
     }
 });
