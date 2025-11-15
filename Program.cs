@@ -77,6 +77,8 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<ISupplierService, SupplierService>();
 // ADD THE MISSING REGISTRATION FOR IMenuItemService
 builder.Services.AddScoped<IMenuItemService, ProductService>();
+// ADD THE MISSING REGISTRATION FOR IInventoryService
+builder.Services.AddScoped<IInventoryService, InventoryService>();
 
 builder.Services.AddSingleton<IReportService>(sp =>
 {
