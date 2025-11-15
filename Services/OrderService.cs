@@ -339,6 +339,12 @@ namespace TambayanCafeAPI.Services
 
             var lowStockThreshold = 5; // Define this appropriately, maybe as a config value
             var lowStockFilter = Builders<InventoryItem>.Filter.Lt(ii => ii.CurrentStock, lowStockThreshold);
+            // Assuming you have access to the inventory collection here or via _inventoryService
+            // var inventoryCollection = database.GetCollection<InventoryItem>("Inventory"); // You'd need access to database or _inventoryService
+            // var lowStockAlerts = await inventoryCollection.CountDocumentsAsync(lowStockFilter);
+
+            // For now, using a placeholder value for lowStockAlerts
+            // You should implement GetLowStockItemsAsync in InventoryService and use it here
             var lowStockAlerts = 0; // Placeholder - replace with actual count from inventory
 
             return new
@@ -352,6 +358,12 @@ namespace TambayanCafeAPI.Services
 
         public async Task<IEnumerable<Order>> GetOrdersForStaffAsync(int limit, string statusFilter)
         {
+            // Example implementation logic (pseudo-code):
+            // 1. Build a MongoDB filter based on statusFilter (e.g., "New,Preparing,Ready")
+            // 2. Apply the filter and limit to the collection find operation.
+            // 3. Return the list of orders.
+
+            // Example filter logic (adjust based on your Order model and status field):
             var filter = Builders<Order>.Filter.Empty;
             if (!string.IsNullOrEmpty(statusFilter))
             {
