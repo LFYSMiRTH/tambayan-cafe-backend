@@ -127,7 +127,6 @@ namespace TambayanCafeAPI.Services
                 var hasIngredients = product.Ingredients != null && product.Ingredients.Any();
                 var hasProductStock = product.StockQuantity > 0;
 
-                // 🔹 STEP 1: Deduct from PRODUCT STOCK (if available)
                 if (hasProductStock)
                 {
                     if (product.StockQuantity < requestedQty)
@@ -153,7 +152,6 @@ namespace TambayanCafeAPI.Services
                         requestedQty, product.Name, product.StockQuantity - requestedQty);
                 }
 
-                // 🔹 STEP 2: ALWAYS deduct INGREDIENTS (if defined), for the FULL order quantity
                 if (hasIngredients)
                 {
                     foreach (var ingredient in product.Ingredients)
@@ -191,7 +189,6 @@ namespace TambayanCafeAPI.Services
                     }
                 }
 
-                // 🔹 Fallback: no stock, no ingredients → assume unlimited
                 if (!hasProductStock && !hasIngredients)
                 {
                     _logger.LogWarning("Product '{Product}' has no stock tracking — assuming unlimited.", product.Name);
@@ -302,7 +299,6 @@ namespace TambayanCafeAPI.Services
                 .ToListAsync();
         }
 
-        // --- Methods needed by StaffController ---
         public async Task<object> GetStaffDashboardStatsAsync()
         {
             var startOfDay = DateTime.UtcNow.Date;
@@ -311,59 +307,42 @@ namespace TambayanCafeAPI.Services
             var filterToday = Builders<Order>.Filter.And(
                 Builders<Order>.Filter.Gte(o => o.CreatedAt, startOfDay),
                 Builders<Order>.Filter.Lt(o => o.CreatedAt, endOfDay),
-                Builders<Order>.Filter.Ne(o => o.Status, "Cancelled") // Assuming 'Cancelled' is a status
+                Builders<Order>.Filter.Ne(o => o.Status, "Cancelled")
             );
 
             var filterTodayCompleted = Builders<Order>.Filter.And(
                 filterToday,
-                Builders<Order>.Filter.In(o => o.Status, new[] { "Completed", "Served" }) // Adjust statuses as needed
+                Builders<Order>.Filter.In(o => o.Status, new[] { "Completed", "Served" })
             );
 
-            // --- UPDATE THE PENDING FILTER TO INCLUDE 'Pending' ---
-            var filterPending = Builders<Order>.Filter.In(o => o.Status, new[] { "New", "Preparing", "Pending" }); // Include 'Pending'
-            // --- END UPDATE ---
+            var filterPending = Builders<Order>.Filter.In(o => o.Status, new[] { "New", "Preparing", "Pending" });
 
             var totalOrdersToday = await _orders.CountDocumentsAsync(filterToday);
 
-            // --- CORRECTED LINE ---
-            // The result of FirstOrDefaultAsync() here is 'decimal' (0 if no docs match), not 'decimal?'.
-            // So, the '?? 0.0m' is not needed and causes the error.
             var totalSalesToday = await _orders
                 .Aggregate()
                 .Match(filterTodayCompleted)
                 .Group(o => 1, g => g.Sum(o => o.TotalAmount))
-                .FirstOrDefaultAsync(); // Returns 'decimal'
-            // --- END CORRECTED LINE ---
+                .FirstOrDefaultAsync();
 
-            var pendingOrders = await _orders.CountDocumentsAsync(filterPending); // This will now count 'Pending' orders
+            var pendingOrders = await _orders.CountDocumentsAsync(filterPending);
 
-            var lowStockThreshold = 5; // Define this appropriately, maybe as a config value
+            var lowStockThreshold = 5;
             var lowStockFilter = Builders<InventoryItem>.Filter.Lt(ii => ii.CurrentStock, lowStockThreshold);
-            // Assuming you have access to the inventory collection here or via _inventoryService
-            // var inventoryCollection = database.GetCollection<InventoryItem>("Inventory"); // You'd need access to database or _inventoryService
-            // var lowStockAlerts = await inventoryCollection.CountDocumentsAsync(lowStockFilter);
 
-            // For now, using a placeholder value for lowStockAlerts
-            // You should implement GetLowStockItemsAsync in InventoryService and use it here
-            var lowStockAlerts = 0; // Placeholder - replace with actual count from inventory
+            var lowStockAlerts = 0;
 
             return new
             {
                 totalOrdersToday = totalOrdersToday,
-                totalSalesToday = totalSalesToday, // Use the value directly
-                pendingOrders = pendingOrders, // This will now include 'Pending' orders
+                totalSalesToday = totalSalesToday,
+                pendingOrders = pendingOrders,
                 lowStockAlerts = lowStockAlerts
             };
         }
 
         public async Task<IEnumerable<Order>> GetOrdersForStaffAsync(int limit, string statusFilter)
         {
-            // Example implementation logic (pseudo-code):
-            // 1. Build a MongoDB filter based on statusFilter (e.g., "New,Preparing,Ready")
-            // 2. Apply the filter and limit to the collection find operation.
-            // 3. Return the list of orders.
-
-            // Example filter logic (adjust based on your Order model and status field):
             var filter = Builders<Order>.Filter.Empty;
             if (!string.IsNullOrEmpty(statusFilter))
             {
@@ -377,27 +356,27 @@ namespace TambayanCafeAPI.Services
 
         public async Task<Order> UpdateOrderStatusAsync(string orderId, string newStatus)
         {
+            var filter = Builders<Order>.Filter.Eq(o => o.Id, orderId);
 
-            var filter = Builders<Order>.Filter.Eq(o => o.Id, orderId); // Assuming Id is the primary key
-            var update = Builders<Order>.Update.Set(o => o.Status, newStatus);
+            var update = Builders<Order>.Update
+                .Set(o => o.Status, newStatus)
+                .Set(o => o.IsCompleted, newStatus == "Completed");
 
             var result = await _orders.UpdateOneAsync(filter, update);
 
             if (result.MatchedCount == 0)
             {
                 _logger?.LogWarning("Order with ID {OrderId} not found for status update.", orderId);
-                return null; // Or throw an exception
+                return null;
             }
 
-            // Fetch and return the updated order
             var updatedOrder = await _orders.Find(filter).FirstOrDefaultAsync();
             return updatedOrder;
         }
 
         public async Task<Order> GetOrderByIdAsync(string orderId)
         {
-
-            var filter = Builders<Order>.Filter.Eq(o => o.Id, orderId); // Assuming Id is the primary key
+            var filter = Builders<Order>.Filter.Eq(o => o.Id, orderId);
             var order = await _orders.Find(filter).FirstOrDefaultAsync();
             return order;
         }
