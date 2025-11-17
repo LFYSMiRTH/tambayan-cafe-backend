@@ -9,6 +9,7 @@ namespace TambayanCafeAPI.Services
         Task<List<InventoryItem>> GetAllAsync();
 
         Task<IEnumerable<InventoryItem>> GetAllInventoryItemsAsync(); 
-        Task<IEnumerable<InventoryItem>> GetLowStockItemsAsync(); 
+        Task<IEnumerable<InventoryItem>> GetLowStockItemsAsync();
+        Task SendLowStockAlertAsync(string itemName);
     }
 }

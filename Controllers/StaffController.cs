@@ -3,35 +3,35 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using TambayanCafeAPI.Models; 
+using TambayanCafeAPI.Models;
 using TambayanCafeAPI.Services;
 using TambayanCafeSystem.Services;
 using System.Security.Claims;
 using Microsoft.Extensions.Logging;
-using MongoDB.Bson; 
+using MongoDB.Bson;
 
 namespace TambayanCafeSystem.Controllers
 {
     [ApiController]
-    [Route("api/staff")] 
-    [Authorize(Roles = "staff")] 
+    [Route("api/staff")]
+    [Authorize(Roles = "staff")]
     public class StaffController : ControllerBase
     {
         private readonly IUserService _userService;
         private readonly IOrderService _orderService;
         private readonly IInventoryService _inventoryService;
-        private readonly ILogger<StaffController> _logger; 
+        private readonly ILogger<StaffController> _logger;
 
         public StaffController(
             IUserService userService,
             IOrderService orderService,
             IInventoryService inventoryService,
-            ILogger<StaffController> logger) 
+            ILogger<StaffController> logger)
         {
             _userService = userService;
             _orderService = orderService;
             _inventoryService = inventoryService;
-            _logger = logger; 
+            _logger = logger;
         }
 
         private IActionResult ValidateStaffRole()
@@ -202,7 +202,7 @@ namespace TambayanCafeSystem.Controllers
 
             try
             {
-                
+
                 _logger.LogInformation("Print all ready orders request received by staff ID {StaffId}", User.FindFirst("id")?.Value);
 
                 return Ok(new { message = "All ready orders sent to printer." });
@@ -221,8 +221,8 @@ namespace TambayanCafeSystem.Controllers
             if (ValidateStaffRole() is IActionResult unauthorizedResult)
                 return unauthorizedResult;
 
-            // Basic validation
-            if (string.IsNullOrEmpty(alertDto?.ItemName))
+            // Basic validation - ✅ IMPROVED CHECK
+            if (alertDto == null || string.IsNullOrEmpty(alertDto.ItemName))
             {
                 return BadRequest(new { message = "Item name is required." });
             }
@@ -231,7 +231,9 @@ namespace TambayanCafeSystem.Controllers
             {
                 _logger.LogWarning("Low stock alert sent for item '{ItemName}' by staff ID {StaffId}", alertDto.ItemName, User.FindFirst("id")?.Value);
 
-                // Example: await _notificationService.SendLowStockAlertAsync(alertDto.ItemName);
+                // ✅ UNCOMMENTED AND ADDED SERVICE CALL
+                await _inventoryService.SendLowStockAlertAsync(alertDto.ItemName);
+
                 return Ok(new { message = "Low stock alert for '" + alertDto.ItemName + "' sent successfully." });
             }
             catch (Exception ex)
