@@ -93,6 +93,11 @@ builder.Services.AddScoped<ISupplierService, SupplierService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IMenuItemService, ProductService>();
 
+// ReportService needs its dependencies explicitly registered
+// ReportService depends on OrderService, InventoryService, ProductService, and IMongoDatabase
+// All of which are already registered as Scoped or Singleton.
+// Register the interface IReportService to the concrete class ReportService using a factory method
+// to ensure dependencies are resolved correctly.
 builder.Services.AddScoped<IReportService, ReportService>(sp =>
 {
     var orderService = sp.GetRequiredService<OrderService>();
@@ -169,16 +174,14 @@ app.Use(async (context, next) =>
             Console.WriteLine($"[QUERY] {context.Request.QueryString.Value}");
         }
 
-        // IMPORTANT: This will return a 500 for *any* unhandled exception.
-        // Check your backend logs for the specific exception details from the line above.
         context.Response.StatusCode = 500;
         context.Response.ContentType = "application/json";
         await context.Response.WriteAsync(
             System.Text.Json.JsonSerializer.Serialize(new
             {
                 error = "Internal server error",
-                details = ex.Message, // This might be empty if the exception happens early
-                stackTrace = ex.StackTrace // This might be empty if the exception happens early
+                details = ex.Message,
+                stackTrace = ex.StackTrace
             })
         );
     }
