@@ -1,4 +1,5 @@
-﻿using MongoDB.Bson;
+﻿// Program.cs
+using MongoDB.Bson;
 using MongoDB.Driver;
 using TambayanCafeAPI.Services;
 using TambayanCafeSystem.Services;
@@ -92,8 +93,7 @@ builder.Services.AddScoped<ISupplierService, SupplierService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IMenuItemService, ProductService>();
 
-// ReportService needs its dependencies explicitly registered
-builder.Services.AddScoped<ReportService>(sp =>
+builder.Services.AddScoped<IReportService, ReportService>(sp =>
 {
     var orderService = sp.GetRequiredService<OrderService>();
     var inventoryService = sp.GetRequiredService<InventoryService>();
