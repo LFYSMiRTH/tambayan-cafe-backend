@@ -65,27 +65,37 @@ catch (Exception ex)
     throw;
 }
 
+// Register services with their dependencies, ensuring correct order and lifetimes
+// Core database dependency (Singleton)
+// IMongoClient and IMongoDatabase are already registered above
+
+// Register NotificationService first (depends on IMongoDatabase)
 builder.Services.AddScoped<NotificationService>();
-builder.Services.AddScoped<UserService>();
-builder.Services.AddScoped<ProductService>();
-builder.Services.AddScoped<SupplierService>();
+
+// Register InventoryService (depends on IMongoDatabase and NotificationService)
 builder.Services.AddScoped<InventoryService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>(); // Register interface if used
 
-// ReorderService might depend on InventoryService/NotificationService/ProductService/IMongoDatabase
+// Register ProductService (depends on IMongoDatabase and InventoryService)
+builder.Services.AddScoped<ProductService>();
+builder.Services.AddScoped<IMenuItemService, ProductService>(); // Register interface if used
+
+// Register ReorderService (might depend on InventoryService/NotificationService/ProductService/IMongoDatabase)
 builder.Services.AddScoped<ReorderService>();
 
-// OrderService depends on ProductService/InventoryService/NotificationService/IMongoDatabase/ILogger
+// Register OrderService (depends on ProductService/InventoryService/NotificationService/IMongoDatabase/ILogger)
 builder.Services.AddScoped<OrderService>();
 builder.Services.AddScoped<IOrderService, OrderService>(); // Register interface if used
 
-// Register other interfaces
-builder.Services.AddScoped<ISupplierService, SupplierService>();
-builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<IMenuItemService, ProductService>();
+// Register other core services
+builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<SupplierService>();
+builder.Services.AddScoped<IUserService, UserService>(); // Register interface if used
+builder.Services.AddScoped<ISupplierService, SupplierService>(); // Register interface if used
 
 // Register IReportService last, after its dependencies (OrderService, InventoryService, ProductService) are registered.
 // Use a factory method to explicitly resolve dependencies for ReportService.
+// ReportService expects OrderService, InventoryService, ProductService (concrete classes) and IMongoDatabase.
 builder.Services.AddScoped<IReportService, ReportService>(sp =>
 {
     // The factory method explicitly requests the concrete types that ReportService's constructor expects.
