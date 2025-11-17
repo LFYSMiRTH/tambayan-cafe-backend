@@ -214,34 +214,8 @@ namespace TambayanCafeSystem.Controllers
             }
         }
 
-        // POST api/staff/inventory/alert
-        [HttpPost("inventory/alert")]
-        public async Task<IActionResult> SendLowStockAlert([FromBody] LowStockAlertDto alertDto)
-        {
-            if (ValidateStaffRole() is IActionResult unauthorizedResult)
-                return unauthorizedResult;
-
-            // Basic validation - ✅ IMPROVED CHECK
-            if (alertDto == null || string.IsNullOrEmpty(alertDto.ItemName))
-            {
-                return BadRequest(new { message = "Item name is required." });
-            }
-
-            try
-            {
-                _logger.LogWarning("Low stock alert sent for item '{ItemName}' by staff ID {StaffId}", alertDto.ItemName, User.FindFirst("id")?.Value);
-
-                // ✅ UNCOMMENTED AND ADDED SERVICE CALL
-                await _inventoryService.SendLowStockAlertAsync(alertDto.ItemName);
-
-                return Ok(new { message = "Low stock alert for '" + alertDto.ItemName + "' sent successfully." });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error sending low stock alert for item '{ItemName}' by staff ID {StaffId}", alertDto.ItemName, User.FindFirst("id")?.Value);
-                return StatusCode(500, new { message = "An error occurred while sending the low stock alert." });
-            }
-        }
+        // ❌ REMOVED: The SendLowStockAlert method was removed from StaffController.
+        // It is now only in OrderController.
 
         // GET api/staff/notifications?limit=5
         [HttpGet("notifications")]
@@ -298,7 +272,7 @@ namespace TambayanCafeSystem.Controllers
         public string Status { get; set; }
     }
 
-    public class LowStockAlertDto
+    public class LowStockAlertDto // This DTO might still be needed elsewhere or can be removed if only used by the removed method
     {
         public string ItemName { get; set; }
     }
