@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using TambayanCafeAPI.Models;
 using TambayanCafeAPI.Services;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Authorization; 
 
 namespace TambayanCafeSystem.Controllers
 {
@@ -74,12 +75,14 @@ namespace TambayanCafeSystem.Controllers
         }
 
         // ✅ ADD: POST endpoint for staff to send low stock alerts
+        // Add the [Authorize(Roles = "staff")] attribute here
         [HttpPost("staff/inventory/alert")]
+        [Authorize(Roles = "staff")] // ✅ Ensure only staff can call this
         public async Task<IActionResult> SendLowStockAlert([FromBody] SendLowStockAlertDto dto)
         {
             try
             {
-                if (string.IsNullOrEmpty(dto.ItemName))
+                if (dto == null || string.IsNullOrEmpty(dto.ItemName)) // Add null check for dto itself
                 {
                     return BadRequest("Item name is required.");
                 }
@@ -91,7 +94,7 @@ namespace TambayanCafeSystem.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error sending low stock alert for item {ItemName}", dto.ItemName);
+                _logger.LogError(ex, "Error sending low stock alert for item {ItemName}", dto?.ItemName); // Log potential null ItemName safely
                 return StatusCode(500, new { message = "An error occurred while sending the alert." });
             }
         }
