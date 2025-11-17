@@ -1,5 +1,4 @@
-﻿// Program.cs
-using MongoDB.Bson;
+﻿using MongoDB.Bson;
 using MongoDB.Driver;
 using TambayanCafeAPI.Services;
 using TambayanCafeSystem.Services;
@@ -66,44 +65,35 @@ catch (Exception ex)
     throw;
 }
 
-// Register services with their dependencies, ensuring correct order and lifetimes
-// Core database dependency (Singleton)
-// IMongoClient and IMongoDatabase are already registered above
-
-// Services that depend on IMongoDatabase (Singleton) or just the database instance
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<ProductService>();
 builder.Services.AddScoped<SupplierService>();
-
-// Services that depend on other services registered above (all Scoped)
-// InventoryService depends on IMongoDatabase (Singleton) and NotificationService (Scoped)
 builder.Services.AddScoped<InventoryService>();
-builder.Services.AddScoped<IInventoryService, InventoryService>(); // Register interface
+builder.Services.AddScoped<IInventoryService, InventoryService>(); // Register interface if used
 
 // ReorderService might depend on InventoryService/NotificationService/ProductService/IMongoDatabase
 builder.Services.AddScoped<ReorderService>();
 
-// OrderService depends on InventoryService/NotificationService/ProductService/IMongoDatabase
+// OrderService depends on ProductService/InventoryService/NotificationService/IMongoDatabase/ILogger
 builder.Services.AddScoped<OrderService>();
-builder.Services.AddScoped<IOrderService, OrderService>(); // Register interface
+builder.Services.AddScoped<IOrderService, OrderService>(); // Register interface if used
 
 // Register other interfaces
 builder.Services.AddScoped<ISupplierService, SupplierService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IMenuItemService, ProductService>();
 
-// ReportService needs its dependencies explicitly registered
-// ReportService depends on OrderService, InventoryService, ProductService, and IMongoDatabase
-// All of which are already registered as Scoped or Singleton.
-// Register the interface IReportService to the concrete class ReportService using a factory method
-// to ensure dependencies are resolved correctly.
+// Register IReportService last, after its dependencies (OrderService, InventoryService, ProductService) are registered.
+// Use a factory method to explicitly resolve dependencies for ReportService.
 builder.Services.AddScoped<IReportService, ReportService>(sp =>
 {
-    var orderService = sp.GetRequiredService<OrderService>();
-    var inventoryService = sp.GetRequiredService<InventoryService>();
-    var productService = sp.GetRequiredService<ProductService>();
-    var database = sp.GetRequiredService<IMongoDatabase>();
+    // The factory method explicitly requests the concrete types that ReportService's constructor expects.
+    var orderService = sp.GetRequiredService<OrderService>(); // Gets the concrete OrderService
+    var inventoryService = sp.GetRequiredService<InventoryService>(); // Gets the concrete InventoryService
+    var productService = sp.GetRequiredService<ProductService>(); // Gets the concrete ProductService
+    var database = sp.GetRequiredService<IMongoDatabase>(); // Gets the IMongoDatabase
+    // Create and return the ReportService instance
     return new ReportService(orderService, inventoryService, productService, database);
 });
 
