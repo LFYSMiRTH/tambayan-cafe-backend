@@ -5,7 +5,7 @@ using TambayanCafeSystem.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using Microsoft.Extensions.Logging; // Add this for logging if not already present
+using Microsoft.Extensions.Logging;
 
 System.Net.ServicePointManager.SecurityProtocol =
     System.Net.SecurityProtocolType.Tls12 | System.Net.SecurityProtocolType.Tls13;
@@ -68,10 +68,10 @@ catch (Exception ex)
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<ProductService>();
 builder.Services.AddScoped<SupplierService>();
-// ✅ Register NotificationService first (as InventoryService depends on it)
-builder.Services.AddScoped<NotificationService>();
-// ✅ Register InventoryService - Ensure it's registered here, and it will get NotificationService and ILogger via DI
+// ✅ Register InventoryService - Ensure it's registered here
 builder.Services.AddScoped<InventoryService>();
+// ✅ Register NotificationService - Ensure it's registered here
+builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<ReorderService>();
 builder.Services.AddScoped<OrderService>();
 builder.Services.AddScoped<IUserService, UserService>();
