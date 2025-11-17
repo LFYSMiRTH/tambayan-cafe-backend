@@ -11,11 +11,13 @@ namespace TambayanCafeSystem.Controllers
     public class OrderController : ControllerBase
     {
         private readonly IOrderService _orderService;
+        private readonly InventoryService _inventoryService; // ✅ Inject InventoryService
         private readonly ILogger<OrderController> _logger;
 
-        public OrderController(IOrderService orderService, ILogger<OrderController> logger)
+        public OrderController(IOrderService orderService, InventoryService inventoryService, ILogger<OrderController> logger) // ✅ Add InventoryService to constructor
         {
             _orderService = orderService;
+            _inventoryService = inventoryService; // ✅ Assign injected service
             _logger = logger;
         }
 
@@ -70,10 +72,39 @@ namespace TambayanCafeSystem.Controllers
                 return StatusCode(500, new { message = "An error occurred while updating the order status." });
             }
         }
+
+        // ✅ ADD: POST endpoint for staff to send low stock alerts
+        [HttpPost("staff/inventory/alert")]
+        public async Task<IActionResult> SendLowStockAlert([FromBody] SendLowStockAlertDto dto)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(dto.ItemName))
+                {
+                    return BadRequest("Item name is required.");
+                }
+
+                // ✅ Call the service to handle the business logic and notification creation
+                await _inventoryService.SendLowStockAlertAsync(dto.ItemName);
+
+                return Ok(new { message = "Low stock alert sent successfully." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending low stock alert for item {ItemName}", dto.ItemName);
+                return StatusCode(500, new { message = "An error occurred while sending the alert." });
+            }
+        }
     }
 
     public class UpdateOrderStatusDto
     {
         public string Status { get; set; }
+    }
+
+    // ✅ ADD: DTO for the alert request body
+    public class SendLowStockAlertDto
+    {
+        public string ItemName { get; set; }
     }
 }

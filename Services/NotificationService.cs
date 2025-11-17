@@ -53,5 +53,12 @@ namespace TambayanCafeAPI.Services
                 .Limit(limit)
                 .ToListAsync();
         }
+
+        public async Task<List<Notification>> GetNotificationsForRoleAsync(string role, int limit = 10)
+        {
+            var filter = Builders<Notification>.Filter.Eq(n => n.TargetRole, role);
+            var sort = Builders<Notification>.Sort.Descending(n => n.CreatedAt);
+            return await _notifications.Find(filter).Sort(sort).Limit(limit).ToListAsync();
+        }
     }
 }

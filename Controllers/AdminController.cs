@@ -10,7 +10,7 @@ namespace TambayanCafeSystem.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "admin")] // ✅ Global auth handles this
+    [Authorize(Roles = "admin")] 
     public class AdminController : ControllerBase
     {
         private readonly OrderService _orderService;
@@ -18,19 +18,22 @@ namespace TambayanCafeSystem.Controllers
         private readonly InventoryService _inventoryService;
         private readonly SupplierService _supplierService;
         private readonly UserService _userService;
+        private readonly NotificationService _notificationService; // ✅ Inject NotificationService
 
         public AdminController(
             OrderService orderService,
             ProductService productService,
             InventoryService inventoryService,
             SupplierService supplierService,
-            UserService userService)
+            UserService userService,
+            NotificationService notificationService) // ✅ Add NotificationService to constructor
         {
             _orderService = orderService;
             _productService = productService;
             _inventoryService = inventoryService;
             _supplierService = supplierService;
             _userService = userService;
+            _notificationService = notificationService; // ✅ Assign injected service
         }
 
         // ✅ REMOVED IsAdmin() method
@@ -381,6 +384,22 @@ namespace TambayanCafeSystem.Controllers
             customer.IsActive = statusDto.IsActive;
             _userService.Update(id, customer);
             return Ok(new { message = $"Customer is now {(statusDto.IsActive ? "active" : "blocked")}." });
+        }
+
+        // ✅ ADD: GET endpoint for admin to fetch their notifications
+        [HttpGet("notifications")]
+        public async Task<ActionResult<List<Notification>>> GetAdminNotifications([FromQuery] int limit = 10)
+        {
+            try
+            {
+                var notifications = await _notificationService.GetNotificationsForRoleAsync("admin", limit);
+                return Ok(notifications);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ADMIN NOTIFICATIONS ERROR] {ex.Message}");
+                return StatusCode(500, new { message = "An error occurred while fetching notifications." });
+            }
         }
 
         private bool IsStrongPassword(string password)
