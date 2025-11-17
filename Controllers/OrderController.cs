@@ -1,17 +1,17 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
-using TambayanCafeAPI.Models; // Ensure this matches your models namespace
-using TambayanCafeAPI.Services; // Ensure this matches your services namespace
-using Microsoft.Extensions.Logging; // For logging
+using TambayanCafeAPI.Models;
+using TambayanCafeAPI.Services;
+using Microsoft.Extensions.Logging;
 
-namespace TambayanCafeSystem.Controllers // Ensure this matches your controllers namespace
+namespace TambayanCafeSystem.Controllers
 {
     [ApiController]
-    [Route("api")] // Change the base route to just "api"
+    [Route("api")]
     public class OrderController : ControllerBase
     {
         private readonly IOrderService _orderService;
-        private readonly ILogger<OrderController> _logger; // Inject logger
+        private readonly ILogger<OrderController> _logger;
 
         public OrderController(IOrderService orderService, ILogger<OrderController> logger)
         {
@@ -19,32 +19,61 @@ namespace TambayanCafeSystem.Controllers // Ensure this matches your controllers
             _logger = logger;
         }
 
-        // POST: api/orders
-        [HttpPost("orders")] // This appends 'orders' to the base route, making it '/api/orders'
+        [HttpPost("orders")]
         public async Task<IActionResult> CreateOrder([FromBody] OrderRequestDto orderRequest)
         {
             try
             {
-                // Validate the incoming model state
                 if (!ModelState.IsValid)
                 {
                     return BadRequest(ModelState);
                 }
 
-                // Call your service to handle the business logic and database interaction
                 var createdOrder = await _orderService.CreateOrderAsync(orderRequest);
-
-                // Return success response (200 OK) with the created order details
                 return Ok(createdOrder);
             }
             catch (System.Exception ex)
             {
-                // Log the exception
                 _logger.LogError(ex, "Error creating order for customer {CustomerId}", orderRequest?.CustomerId);
-
-                // Return a generic error to the client (500 Internal Server Error)
                 return StatusCode(500, new { message = "An error occurred while processing your order." });
             }
         }
+
+        [HttpPut("orders/{orderId}/status")]
+        public async Task<IActionResult> UpdateOrderStatus(string orderId, [FromBody] UpdateOrderStatusDto statusDto)
+        {
+            try
+            {
+                if (statusDto == null || string.IsNullOrEmpty(statusDto.Status))
+                {
+                    return BadRequest("Status is required.");
+                }
+
+                var validStatuses = new[] { "New", "Preparing", "Ready", "Completed", "Served", "Pending", "Cancelled" };
+                if (!validStatuses.Contains(statusDto.Status))
+                {
+                    return BadRequest($"Invalid status: {statusDto.Status}");
+                }
+
+                var updatedOrder = await _orderService.UpdateOrderStatusAsync(orderId, statusDto.Status);
+
+                if (updatedOrder == null)
+                {
+                    return NotFound();
+                }
+
+                return Ok(new { message = "Order status updated successfully." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating order status for order {OrderId}", orderId);
+                return StatusCode(500, new { message = "An error occurred while updating the order status." });
+            }
+        }
+    }
+
+    public class UpdateOrderStatusDto
+    {
+        public string Status { get; set; }
     }
 }

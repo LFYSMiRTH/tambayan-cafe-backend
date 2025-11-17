@@ -74,8 +74,8 @@ namespace TambayanCafeAPI.Services
                     Sugar = item.Sugar
                 }).ToList(),
                 TotalAmount = orderRequest.TotalAmount,
-                Status = "Pending",
-                IsCompleted = false,
+                Status = "New", 
+                IsCompleted = false, 
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -358,9 +358,11 @@ namespace TambayanCafeAPI.Services
         {
             var filter = Builders<Order>.Filter.Eq(o => o.Id, orderId);
 
+            var isCompleted = (newStatus == "Completed" || newStatus == "Served");
+
             var update = Builders<Order>.Update
                 .Set(o => o.Status, newStatus)
-                .Set(o => o.IsCompleted, newStatus == "Completed");
+                .Set(o => o.IsCompleted, isCompleted);
 
             var result = await _orders.UpdateOneAsync(filter, update);
 
