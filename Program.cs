@@ -55,9 +55,8 @@ try
     await database.RunCommandAsync((Command<BsonDocument>)"{ ping: 1 }");
     Console.WriteLine("[INFO] MongoDB connection established successfully.");
 
-    // Register the database instance as a singleton so it can be injected into services
     builder.Services.AddSingleton<IMongoClient>(client);
-    builder.Services.AddSingleton<IMongoDatabase>(database); // This is crucial for services
+    builder.Services.AddSingleton<IMongoDatabase>(database);
 }
 catch (Exception ex)
 {
@@ -65,47 +64,32 @@ catch (Exception ex)
     throw;
 }
 
-// Register services with their dependencies, ensuring correct order and lifetimes
-// Core database dependency (Singleton)
-// IMongoClient and IMongoDatabase are already registered above
-
-// Register NotificationService first (depends on IMongoDatabase)
-builder.Services.AddScoped<NotificationService>();
-
-// Register InventoryService (depends on IMongoDatabase and NotificationService)
-builder.Services.AddScoped<InventoryService>();
-builder.Services.AddScoped<IInventoryService, InventoryService>(); // Register interface if used
-
-// Register ProductService (depends on IMongoDatabase and InventoryService)
-builder.Services.AddScoped<ProductService>();
-builder.Services.AddScoped<IMenuItemService, ProductService>(); // Register interface if used
-
-// Register ReorderService (might depend on InventoryService/NotificationService/ProductService/IMongoDatabase)
-builder.Services.AddScoped<ReorderService>();
-
-// Register OrderService (depends on ProductService/InventoryService/NotificationService/IMongoDatabase/ILogger)
-builder.Services.AddScoped<OrderService>();
-builder.Services.AddScoped<IOrderService, OrderService>(); // Register interface if used
-
-// Register other core services
+// Register services with their dependencies
 builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<ProductService>();
+// ✅ Register InventoryService with NotificationService and ILogger
+builder.Services.AddScoped<InventoryService>();
 builder.Services.AddScoped<SupplierService>();
-builder.Services.AddScoped<IUserService, UserService>(); // Register interface if used
-builder.Services.AddScoped<ISupplierService, SupplierService>(); // Register interface if used
+builder.Services.AddScoped<NotificationService>(); // Ensure NotificationService is registered first
+builder.Services.AddScoped<ReorderService>();
+builder.Services.AddScoped<OrderService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<ISupplierService, SupplierService>();
+builder.Services.AddScoped<IInventoryService, InventoryService>();
+// ADD THE MISSING REGISTRATION FOR IMenuItemService
+builder.Services.AddScoped<IMenuItemService, ProductService>();
 
-// Register IReportService last, after its dependencies (OrderService, InventoryService, ProductService) are registered.
-// Use a factory method to explicitly resolve dependencies for ReportService.
-// ReportService expects OrderService, InventoryService, ProductService (concrete classes) and IMongoDatabase.
-builder.Services.AddScoped<IReportService, ReportService>(sp =>
+builder.Services.AddSingleton<IReportService>(sp =>
 {
-    // The factory method explicitly requests the concrete types that ReportService's constructor expects.
-    var orderService = sp.GetRequiredService<OrderService>(); // Gets the concrete OrderService
-    var inventoryService = sp.GetRequiredService<InventoryService>(); // Gets the concrete InventoryService
-    var productService = sp.GetRequiredService<ProductService>(); // Gets the concrete ProductService
-    var database = sp.GetRequiredService<IMongoDatabase>(); // Gets the IMongoDatabase
-    // Create and return the ReportService instance
+    var orderService = sp.GetRequiredService<OrderService>();
+    var inventoryService = sp.GetRequiredService<InventoryService>();
+    var productService = sp.GetRequiredService<ProductService>();
+    var database = sp.GetRequiredService<IMongoDatabase>();
     return new ReportService(orderService, inventoryService, productService, database);
 });
+
+builder.Services.AddScoped<ReportService>();
 
 builder.Services.AddHostedService<ReorderBackgroundService>();
 
@@ -165,7 +149,6 @@ app.Use(async (context, next) =>
     }
     catch (Exception ex)
     {
-        // This global handler will catch any unhandled exceptions during request processing
         Console.WriteLine($"[GLOBAL ERROR] {ex}");
         Console.WriteLine($"[REQUEST] {context.Request.Method} {context.Request.Path}");
         Console.WriteLine($"[HEADERS] {string.Join(", ", context.Request.Headers.Select(h => $"{h.Key}={h.Value}"))}");
