@@ -55,8 +55,9 @@ try
     await database.RunCommandAsync((Command<BsonDocument>)"{ ping: 1 }");
     Console.WriteLine("[INFO] MongoDB connection established successfully.");
 
+    // Register the database instance as a singleton so it can be injected into services
     builder.Services.AddSingleton<IMongoClient>(client);
-    builder.Services.AddSingleton<IMongoDatabase>(database);
+    builder.Services.AddSingleton<IMongoDatabase>(database); // This is crucial for services
 }
 catch (Exception ex)
 {
@@ -64,24 +65,34 @@ catch (Exception ex)
     throw;
 }
 
-// Register services with their dependencies
+// Register services with their dependencies, ensuring correct order and lifetimes
+// Core database dependency (Singleton)
+// IMongoClient and IMongoDatabase are already registered above
+
+// Services that depend on IMongoDatabase (Singleton) or just the database instance
+builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<ProductService>();
 builder.Services.AddScoped<SupplierService>();
-// ✅ Register InventoryService - Ensure it's registered here
+
+// Services that depend on other services registered above (all Scoped)
+// InventoryService depends on IMongoDatabase (Singleton) and NotificationService (Scoped)
 builder.Services.AddScoped<InventoryService>();
-// ✅ Register NotificationService - Ensure it's registered here
-builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<IInventoryService, InventoryService>(); // Register interface
+
+// ReorderService might depend on InventoryService/NotificationService/ProductService/IMongoDatabase
 builder.Services.AddScoped<ReorderService>();
+
+// OrderService depends on InventoryService/NotificationService/ProductService/IMongoDatabase
 builder.Services.AddScoped<OrderService>();
-builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<IOrderService, OrderService>(); // Register interface
+
+// Register other interfaces
 builder.Services.AddScoped<ISupplierService, SupplierService>();
-builder.Services.AddScoped<IInventoryService, InventoryService>();
-// ADD THE MISSING REGISTRATION FOR IMenuItemService
+builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IMenuItemService, ProductService>();
 
-// Register ReportService with its dependencies explicitly
+// ReportService needs its dependencies explicitly registered
 builder.Services.AddScoped<ReportService>(sp =>
 {
     var orderService = sp.GetRequiredService<OrderService>();
@@ -149,6 +160,7 @@ app.Use(async (context, next) =>
     }
     catch (Exception ex)
     {
+        // This global handler will catch any unhandled exceptions during request processing
         Console.WriteLine($"[GLOBAL ERROR] {ex}");
         Console.WriteLine($"[REQUEST] {context.Request.Method} {context.Request.Path}");
         Console.WriteLine($"[HEADERS] {string.Join(", ", context.Request.Headers.Select(h => $"{h.Key}={h.Value}"))}");
@@ -157,14 +169,16 @@ app.Use(async (context, next) =>
             Console.WriteLine($"[QUERY] {context.Request.QueryString.Value}");
         }
 
+        // IMPORTANT: This will return a 500 for *any* unhandled exception.
+        // Check your backend logs for the specific exception details from the line above.
         context.Response.StatusCode = 500;
         context.Response.ContentType = "application/json";
         await context.Response.WriteAsync(
             System.Text.Json.JsonSerializer.Serialize(new
             {
                 error = "Internal server error",
-                details = ex.Message,
-                stackTrace = ex.StackTrace
+                details = ex.Message, // This might be empty if the exception happens early
+                stackTrace = ex.StackTrace // This might be empty if the exception happens early
             })
         );
     }
