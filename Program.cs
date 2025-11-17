@@ -67,10 +67,11 @@ catch (Exception ex)
 // Register services with their dependencies
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<ProductService>();
-// ✅ Register InventoryService with NotificationService and ILogger
-builder.Services.AddScoped<InventoryService>();
 builder.Services.AddScoped<SupplierService>();
-builder.Services.AddScoped<NotificationService>(); // Ensure NotificationService is registered first
+// ✅ Register InventoryService - Ensure it's registered here
+builder.Services.AddScoped<InventoryService>();
+// ✅ Register NotificationService - Ensure it's registered here
+builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<ReorderService>();
 builder.Services.AddScoped<OrderService>();
 builder.Services.AddScoped<IUserService, UserService>();
@@ -80,7 +81,8 @@ builder.Services.AddScoped<IInventoryService, InventoryService>();
 // ADD THE MISSING REGISTRATION FOR IMenuItemService
 builder.Services.AddScoped<IMenuItemService, ProductService>();
 
-builder.Services.AddSingleton<IReportService>(sp =>
+// Register ReportService with its dependencies explicitly
+builder.Services.AddScoped<ReportService>(sp =>
 {
     var orderService = sp.GetRequiredService<OrderService>();
     var inventoryService = sp.GetRequiredService<InventoryService>();
@@ -88,8 +90,6 @@ builder.Services.AddSingleton<IReportService>(sp =>
     var database = sp.GetRequiredService<IMongoDatabase>();
     return new ReportService(orderService, inventoryService, productService, database);
 });
-
-builder.Services.AddScoped<ReportService>();
 
 builder.Services.AddHostedService<ReorderBackgroundService>();
 
