@@ -28,6 +28,14 @@ namespace TambayanCafeAPI.Controllers
             return Ok(await EnrichProducts(products));
         }
 
+        // ✅ STAFF: Get all menu items for STAFF (enriched, shows all products)
+        [HttpGet("staff/menu")]
+        public async Task<ActionResult<List<object>>> GetStaffMenu()
+        {
+            var products = await _products.Find(_ => true).ToListAsync(); // Get ALL products for staff
+            return Ok(await EnrichProducts(products));
+        }
+
         // ✅ ADMIN: Get all menu items for ADMIN (enriched)
         [HttpGet("admin/menu")]
         public async Task<ActionResult<List<object>>> GetAdminMenu()
