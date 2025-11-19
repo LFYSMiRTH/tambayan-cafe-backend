@@ -21,17 +21,20 @@ namespace TambayanCafeSystem.Controllers
         private readonly IOrderService _orderService;
         private readonly IInventoryService _inventoryService;
         private readonly ILogger<StaffController> _logger;
+        private readonly NotificationService _notificationService; // Add NotificationService
 
         public StaffController(
             IUserService userService,
             IOrderService orderService,
             IInventoryService inventoryService,
-            ILogger<StaffController> logger)
+            ILogger<StaffController> logger,
+            NotificationService notificationService) // Add NotificationService to constructor
         {
             _userService = userService;
             _orderService = orderService;
             _inventoryService = inventoryService;
             _logger = logger;
+            _notificationService = notificationService; // Assign the service
         }
 
         private IActionResult ValidateStaffRole()
@@ -214,8 +217,38 @@ namespace TambayanCafeSystem.Controllers
             }
         }
 
-        // ❌ REMOVED: The SendLowStockAlert method was removed from StaffController.
-        // It is now only in OrderController.
+        [HttpPost("inventory/alert")]
+        public async Task<IActionResult> SendLowStockAlert([FromBody] LowStockAlertRequest request)
+        {
+            if (string.IsNullOrEmpty(request?.ItemName))
+            {
+                return BadRequest(new { message = "Item name is required" });
+            }
+
+            try
+            {
+                // Create a notification for admin about low stock
+                var notification = new Notification
+                {
+                    Message = $"⚠️ Low Stock Alert: {request.ItemName} is running low",
+                    TargetRole = "admin", // Send to admin role
+                    CreatedAt = DateTime.UtcNow,
+                    IsRead = false,
+                    Type = "inventory",
+                    Category = "low_stock",
+                    RelatedId = ""
+                };
+
+                await _notificationService.CreateAsync(notification);
+
+                return Ok(new { message = "Low stock alert sent to admin successfully" });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[STAFF INVENTORY ALERT ERROR] {ex.Message}");
+                return StatusCode(500, new { message = "An error occurred while sending low stock alert" });
+            }
+        }
 
         // GET api/staff/notifications?limit=5
         [HttpGet("notifications")]
@@ -270,10 +303,5 @@ namespace TambayanCafeSystem.Controllers
     public class OrderStatusUpdateDto
     {
         public string Status { get; set; }
-    }
-
-    public class LowStockAlertDto // This DTO might still be needed elsewhere or can be removed if only used by the removed method
-    {
-        public string ItemName { get; set; }
     }
 }
