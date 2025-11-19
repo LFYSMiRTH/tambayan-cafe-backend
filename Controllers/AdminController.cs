@@ -10,7 +10,7 @@ namespace TambayanCafeSystem.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "admin")] 
     public class AdminController : ControllerBase
     {
         private readonly OrderService _orderService;
@@ -402,39 +402,6 @@ namespace TambayanCafeSystem.Controllers
             }
         }
 
-        [HttpPost("inventory/alert")]
-        public async Task<IActionResult> SendLowStockAlert([FromBody] LowStockAlertRequest request)
-        {
-            if (string.IsNullOrEmpty(request?.ItemName))
-            {
-                return BadRequest(new { message = "Item name is required" });
-            }
-
-            try
-            {
-                // Create a notification for admin about low stock
-                var notification = new Notification
-                {
-                    Message = $"⚠️ Low Stock Alert: {request.ItemName} is running low",
-                    TargetRole = "admin", 
-                    CreatedAt = DateTime.UtcNow,
-                    IsRead = false,
-                    Type = "inventory",
-                    Category = "low_stock",
-                    RelatedId = "" 
-                };
-
-                await _notificationService.CreateAsync(notification);
-
-                return Ok(new { message = "Low stock alert sent successfully" });
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[INVENTORY ALERT ERROR] {ex.Message}");
-                return StatusCode(500, new { message = "An error occurred while sending low stock alert" });
-            }
-        }
-
         private bool IsStrongPassword(string password)
         {
             if (string.IsNullOrEmpty(password) || password.Length < 8)
@@ -460,10 +427,5 @@ namespace TambayanCafeSystem.Controllers
     public class CustomerStatusDto
     {
         public bool IsActive { get; set; }
-    }
-
-    public class LowStockAlertRequest
-    {
-        public string ItemName { get; set; }
     }
 }
