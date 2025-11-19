@@ -304,4 +304,9 @@ namespace TambayanCafeSystem.Controllers
     {
         public string Status { get; set; }
     }
+
+    public class LowStockAlertRequest
+    {
+        public string ItemName { get; set; }
+    }
 }
