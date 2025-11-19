@@ -10,7 +10,7 @@ namespace TambayanCafeSystem.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "admin")] 
+    [Authorize(Roles = "admin")]
     public class AdminController : ControllerBase
     {
         private readonly OrderService _orderService;
@@ -49,6 +49,15 @@ namespace TambayanCafeSystem.Controllers
                 PendingOrders = (int)_orderService.GetPendingCount(),
                 LowStockAlerts = (int)_productService.GetLowStockCount()
             });
+        }
+
+        // ✅ NEW: GET endpoint for top-selling items
+        [HttpGet("top-selling")]
+        public ActionResult<List<TopSellingItemDto>> GetTopSellingItems([FromQuery] int limit = 5)
+        {
+            var topSellingItems = _orderService.GetTopSellingItemsWithDetails();
+            var limitedItems = topSellingItems.Take(limit).ToList();
+            return Ok(limitedItems);
         }
 
         [HttpGet("menu")]

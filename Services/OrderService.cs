@@ -74,8 +74,8 @@ namespace TambayanCafeAPI.Services
                     Sugar = item.Sugar
                 }).ToList(),
                 TotalAmount = orderRequest.TotalAmount,
-                Status = "New", 
-                IsCompleted = false, 
+                Status = "New",
+                IsCompleted = false,
                 CreatedAt = DateTime.UtcNow
             };
 
