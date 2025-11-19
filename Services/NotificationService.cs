@@ -60,5 +60,10 @@ namespace TambayanCafeAPI.Services
             var sort = Builders<Notification>.Sort.Descending(n => n.CreatedAt);
             return await _notifications.Find(filter).Sort(sort).Limit(limit).ToListAsync();
         }
+
+        public async Task CreateNotificationAsync(Notification notification)
+        {
+            await CreateAsync(notification);
+        }
     }
 }

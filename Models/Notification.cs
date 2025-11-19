@@ -14,7 +14,7 @@ namespace TambayanCafeAPI.Models
         public string Message { get; set; } = string.Empty;
 
         [BsonElement("type")]
-        public string Type { get; set; } = "info"; 
+        public string Type { get; set; } = "info";
 
         [BsonElement("isRead")]
         public bool IsRead { get; set; } = false;
@@ -29,6 +29,13 @@ namespace TambayanCafeAPI.Models
         public string Category { get; set; } = string.Empty;
 
         [BsonElement("targetRole")]
-        public string TargetRole { get; set; } = "staff"; 
+        public string TargetRole { get; set; } = "staff";
+
+        [BsonIgnore]
+        public string Role
+        {
+            get => TargetRole;
+            set => TargetRole = value;
+        }
     }
 }
