@@ -341,6 +341,7 @@ namespace TambayanCafeAPI.Services
                 lowStockAlerts = lowStockAlerts
             };
         }
+
         public async Task<IEnumerable<Order>> GetOrdersForStaffAsync(int limit, string statusFilter)
         {
             _logger.LogInformation($"GetOrdersForStaffAsync called - limit: {limit}, statusFilter: '{statusFilter}'");
@@ -352,8 +353,9 @@ namespace TambayanCafeAPI.Services
                 _logger.LogInformation($"Applying filter for status: '{statusFilter}'");
 
                 // Handle "Complete" which should include both "Completed" and "Served"
+                // Check for both capitalized and lowercase versions to match frontend input
                 if (statusFilter.Equals("Complete", StringComparison.OrdinalIgnoreCase) ||
-                    statusFilter.Equals("complete", StringComparison.OrdinalIgnoreCase))
+                    statusFilter.Equals("complete", StringComparison.OrdinalIgnoreCase)) // Added this check
                 {
                     _logger.LogInformation("Filtering for Completed or Served orders");
 
