@@ -372,134 +372,79 @@ namespace TambayanCafeAPI.Controllers
         public async Task<IActionResult> GetProfile()
         {
             var userId = GetUserIdFromToken();
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized("No valid user ID found in token.");
-            }
+            var user = await _userService.GetUserProfileAsync(userId);
+            if (user == null)
+                return NotFound("User not found.");
 
-            try
+            return Ok(new
             {
-                var user = await _userService.GetUserProfileAsync(userId);
-                if (user == null)
-                    return NotFound("User not found.");
-
-                return Ok(new
-                {
-                    id = user.Id,
-                    firstName = user.FirstName,
-                    lastName = user.LastName,
-                    email = user.Email,
-                    phoneNumber = user.PhoneNumber,
-                    address = user.Address,
-                    birthday = user.Birthday,
-                    gender = user.Gender
-                });
-            }
-            catch (Exception ex)
-            {
-                // Log the exception for debugging
-                Console.WriteLine($"[ERROR] GetProfile failed for user {userId}: {ex.Message}");
-                return StatusCode(500, "An error occurred while retrieving your profile.");
-            }
+                id = user.Id,
+                firstName = user.FirstName,
+                lastName = user.LastName,
+                email = user.Email,
+                phoneNumber = user.PhoneNumber,
+                address = user.Address,
+                birthday = user.Birthday,
+                gender = user.Gender
+            });
         }
 
         [HttpPut("profile")]
         public async Task<IActionResult> UpdateProfile([FromBody] JsonElement request)
         {
             var userId = GetUserIdFromToken();
-            if (string.IsNullOrEmpty(userId))
+
+            var firstName = request.GetProperty("firstName").GetString();
+            var lastName = request.GetProperty("lastName").GetString();
+            var email = request.GetProperty("email").GetString();
+            var phoneNumber = request.GetProperty("phoneNumber").GetString();
+            var address = request.GetProperty("address").GetString();
+            var birthday = request.GetProperty("birthday").GetRawText() == "null" ? (DateTime?)null : DateTime.Parse(request.GetProperty("birthday").GetString());
+            var gender = request.GetProperty("gender").GetString();
+
+            var updatedUser = new User
             {
-                return Unauthorized("No valid user ID found in token.");
-            }
+                FirstName = firstName,
+                LastName = lastName,
+                Email = email,
+                PhoneNumber = phoneNumber,
+                Address = address,
+                Birthday = birthday,
+                Gender = gender
+            };
 
-            try
-            {
-                var firstName = request.GetProperty("firstName").GetString();
-                var lastName = request.GetProperty("lastName").GetString();
-                var email = request.GetProperty("email").GetString();
-                var phoneNumber = request.GetProperty("phoneNumber").GetString();
-                var address = request.GetProperty("address").GetString();
-                var birthday = request.GetProperty("birthday").GetRawText() == "null" ? (DateTime?)null : DateTime.Parse(request.GetProperty("birthday").GetString());
-                var gender = request.GetProperty("gender").GetString();
+            var success = await _userService.UpdateUserProfileAsync(userId, updatedUser);
+            if (!success)
+                return BadRequest("Failed to update profile.");
 
-                var updatedUser = new User
-                {
-                    FirstName = firstName,
-                    LastName = lastName,
-                    Email = email,
-                    PhoneNumber = phoneNumber,
-                    Address = address,
-                    Birthday = birthday,
-                    Gender = gender
-                };
-
-                var success = await _userService.UpdateUserProfileAsync(userId, updatedUser);
-                if (!success)
-                    return BadRequest("Failed to update profile.");
-
-                return Ok(new { message = "Profile updated successfully." });
-            }
-            catch (Exception ex)
-            {
-                // Log the exception for debugging
-                Console.WriteLine($"[ERROR] UpdateProfile failed for user {userId}: {ex.Message}");
-                return StatusCode(500, "An error occurred while updating your profile.");
-            }
+            return Ok(new { message = "Profile updated successfully." });
         }
 
         [HttpPost("change-password")]
         public async Task<IActionResult> ChangePassword([FromBody] JsonElement request)
         {
             var userId = GetUserIdFromToken();
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized("No valid user ID found in token.");
-            }
+            var currentPassword = request.GetProperty("currentPassword").GetString();
+            var newPassword = request.GetProperty("newPassword").GetString();
 
-            try
-            {
-                var currentPassword = request.GetProperty("currentPassword").GetString();
-                var newPassword = request.GetProperty("newPassword").GetString();
+            var success = await _userService.ChangePasswordAsync(userId, currentPassword, newPassword);
+            if (!success)
+                return BadRequest("Current password is incorrect or update failed.");
 
-                var success = await _userService.ChangePasswordAsync(userId, currentPassword, newPassword);
-                if (!success)
-                    return BadRequest("Current password is incorrect or update failed.");
-
-                return Ok(new { message = "Password changed successfully." });
-            }
-            catch (Exception ex)
-            {
-                // Log the exception for debugging
-                Console.WriteLine($"[ERROR] ChangePassword failed for user {userId}: {ex.Message}");
-                return StatusCode(500, "An error occurred while changing your password.");
-            }
+            return Ok(new { message = "Password changed successfully." });
         }
 
         [HttpDelete]
         public async Task<IActionResult> DeleteAccount([FromBody] JsonElement request)
         {
             var userId = GetUserIdFromToken();
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized("No valid user ID found in token.");
-            }
+            var passwordConfirmation = request.GetProperty("passwordConfirmation").GetString();
 
-            try
-            {
-                var passwordConfirmation = request.GetProperty("passwordConfirmation").GetString();
+            var success = await _userService.DeleteAccountAsync(userId, passwordConfirmation);
+            if (!success)
+                return BadRequest("Password confirmation failed or account deletion failed.");
 
-                var success = await _userService.DeleteAccountAsync(userId, passwordConfirmation);
-                if (!success)
-                    return BadRequest("Password confirmation failed or account deletion failed.");
-
-                return Ok(new { message = "Account deleted successfully." });
-            }
-            catch (Exception ex)
-            {
-                // Log the exception for debugging
-                Console.WriteLine($"[ERROR] DeleteAccount failed for user {userId}: {ex.Message}");
-                return StatusCode(500, "An error occurred while deleting your account.");
-            }
+            return Ok(new { message = "Account deleted successfully." });
         }
 
         private bool IsStrongPassword(string password)
