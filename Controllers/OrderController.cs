@@ -74,8 +74,9 @@ namespace TambayanCafeSystem.Controllers
             }
         }
 
-        [HttpGet("staff/orders")]
-        public async Task<IActionResult> GetOrdersForStaff([FromQuery] int limit = 10, [FromQuery] string statusFilter = null)
+        // Renamed method to avoid conflict with StaffController
+        [HttpGet("orders/staff")]
+        public async Task<IActionResult> GetStaffOrders([FromQuery] int limit = 10, [FromQuery] string statusFilter = null)
         {
             try
             {
