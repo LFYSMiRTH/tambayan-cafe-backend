@@ -31,6 +31,9 @@ namespace TambayanCafeAPI.Models
         [BsonElement("targetRole")]
         public string TargetRole { get; set; } = "staff";
 
+        [BsonElement("customerId")] // ✅ ADD THIS
+        public string CustomerId { get; set; } = string.Empty;
+
         [BsonIgnore]
         public string Role
         {

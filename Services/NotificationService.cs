@@ -61,6 +61,17 @@ namespace TambayanCafeAPI.Services
             return await _notifications.Find(filter).Sort(sort).Limit(limit).ToListAsync();
         }
 
+        // ✅ ADD THIS METHOD
+        public async Task<List<Notification>> GetNotificationsForCustomerAsync(string customerId, int limit = 10)
+        {
+            var filter = Builders<Notification>.Filter.And(
+                Builders<Notification>.Filter.Eq(n => n.CustomerId, customerId),
+                Builders<Notification>.Filter.Ne(n => n.TargetRole, "staff") // Exclude staff-only notifications
+            );
+            var sort = Builders<Notification>.Sort.Descending(n => n.CreatedAt);
+            return await _notifications.Find(filter).Sort(sort).Limit(limit).ToListAsync();
+        }
+
         public async Task CreateNotificationAsync(Notification notification)
         {
             await CreateAsync(notification);

@@ -402,7 +402,31 @@ namespace TambayanCafeAPI.Services
             }
 
             var updatedOrder = await _orders.Find(filter).FirstOrDefaultAsync();
+
+            // ✅ ADD THIS: Trigger notification when status is "Served"
+            if (newStatus == "Served")
+            {
+                await SendOrderServedNotificationAsync(updatedOrder);
+            }
+
             return updatedOrder;
+        }
+
+        // ✅ ADD THIS NEW METHOD
+        private async Task SendOrderServedNotificationAsync(Order order)
+        {
+            var notification = new Notification
+            {
+                Message = $"🎉 Your order #{order.OrderNumber} is ready for pickup!",
+                Type = "success",
+                Category = "order",
+                RelatedId = order.Id,
+                TargetRole = "customer", // ✅ Send to customer
+                CustomerId = order.CustomerId, // ✅ ADD CUSTOMER ID
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _notificationService.CreateAsync(notification);
         }
 
         public async Task<Order> GetOrderByIdAsync(string orderId)
