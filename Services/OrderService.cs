@@ -341,7 +341,6 @@ namespace TambayanCafeAPI.Services
                 lowStockAlerts = lowStockAlerts
             };
         }
-
         public async Task<IEnumerable<Order>> GetOrdersForStaffAsync(int limit, string statusFilter)
         {
             _logger.LogInformation($"GetOrdersForStaffAsync called - limit: {limit}, statusFilter: '{statusFilter}'");
@@ -352,7 +351,6 @@ namespace TambayanCafeAPI.Services
             {
                 _logger.LogInformation($"Applying filter for status: '{statusFilter}'");
 
-                // Handle "Complete" which should include both "Completed" and "Served"
                 if (statusFilter.Equals("Complete", StringComparison.OrdinalIgnoreCase) ||
                     statusFilter.Equals("complete", StringComparison.OrdinalIgnoreCase))
                 {
@@ -361,9 +359,9 @@ namespace TambayanCafeAPI.Services
                 }
                 else
                 {
-                    // For other statuses like "New", "Preparing", "Ready", split by comma if needed
                     var statuses = statusFilter.Split(',').Select(s => s.Trim()).ToArray();
                     _logger.LogInformation($"Filtering for statuses: [{string.Join(", ", statuses)}]");
+
                     filter = Builders<Order>.Filter.In(o => o.Status, statuses);
                 }
             }
