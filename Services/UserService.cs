@@ -97,5 +97,72 @@ namespace TambayanCafeAPI.Services
                 return null;
             return await _users.Find(user => user.Id == id).FirstOrDefaultAsync();
         }
+
+        public async Task<User> GetUserProfileAsync(string userId)
+        {
+            if (string.IsNullOrWhiteSpace(userId) || !ObjectId.TryParse(userId, out _))
+                return null;
+            return await _users.Find(user => user.Id == userId && user.DeletedAt == null).FirstOrDefaultAsync();
+        }
+
+        public async Task<bool> UpdateUserProfileAsync(string userId, User updatedUser)
+        {
+            if (string.IsNullOrWhiteSpace(userId) || !ObjectId.TryParse(userId, out _))
+                return false;
+
+            var filter = Builders<User>.Filter.And(
+                Builders<User>.Filter.Eq(u => u.Id, userId),
+                Builders<User>.Filter.Eq(u => u.DeletedAt, null)
+            );
+
+            var update = Builders<User>.Update
+                .Set(u => u.FirstName, updatedUser.FirstName)
+                .Set(u => u.LastName, updatedUser.LastName)
+                .Set(u => u.Email, updatedUser.Email)
+                .Set(u => u.PhoneNumber, updatedUser.PhoneNumber)
+                .Set(u => u.Address, updatedUser.Address)
+                .Set(u => u.Birthday, updatedUser.Birthday)
+                .Set(u => u.Gender, updatedUser.Gender);
+
+            var result = await _users.UpdateOneAsync(filter, update);
+            return result.ModifiedCount > 0;
+        }
+
+        public async Task<bool> ChangePasswordAsync(string userId, string currentPassword, string newPassword)
+        {
+            if (string.IsNullOrWhiteSpace(userId) || !ObjectId.TryParse(userId, out _))
+                return false;
+
+            var user = await _users.Find(u => u.Id == userId && u.DeletedAt == null).FirstOrDefaultAsync();
+            if (user == null) return false;
+
+            if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.Password))
+                return false;
+
+            var newHashedPassword = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            var update = Builders<User>.Update
+                .Set(u => u.Password, newHashedPassword);
+
+            var result = await _users.UpdateOneAsync(u => u.Id == userId, update);
+            return result.ModifiedCount > 0;
+        }
+
+        public async Task<bool> DeleteAccountAsync(string userId, string passwordConfirmation)
+        {
+            if (string.IsNullOrWhiteSpace(userId) || !ObjectId.TryParse(userId, out _))
+                return false;
+
+            var user = await _users.Find(u => u.Id == userId && u.DeletedAt == null).FirstOrDefaultAsync();
+            if (user == null) return false;
+
+            if (!BCrypt.Net.BCrypt.Verify(passwordConfirmation, user.Password))
+                return false;
+
+            var update = Builders<User>.Update
+                .Set(u => u.DeletedAt, DateTime.UtcNow);
+
+            var result = await _users.UpdateOneAsync(u => u.Id == userId, update);
+            return result.ModifiedCount > 0;
+        }
     }
 }
