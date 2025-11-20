@@ -364,7 +364,7 @@ namespace TambayanCafeAPI.Controllers
                 Console.WriteLine($"Exception Type: {ex.GetType().Name}");
                 Console.WriteLine($"Message: {ex.Message}");
                 Console.WriteLine($"StackTrace: {ex.StackTrace}");
-                return StatusCode(500, new { error = "Failed to create user", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to create user", details = ex.Message });  
             }
         }
 
@@ -372,7 +372,14 @@ namespace TambayanCafeAPI.Controllers
         public async Task<IActionResult> GetProfile()
         {
             var userId = GetUserIdFromToken();
+            Console.WriteLine($"[DEBUG] Requested user ID: {userId}");
+
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized("User not authenticated.");
+
             var user = await _userService.GetUserProfileAsync(userId);
+            Console.WriteLine($"[DEBUG] User found: {user != null}, ID: {user?.Id}");
+
             if (user == null)
                 return NotFound("User not found.");
 
