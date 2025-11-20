@@ -351,17 +351,22 @@ namespace TambayanCafeAPI.Services
             {
                 _logger.LogInformation($"Applying filter for status: '{statusFilter}'");
 
+                // Handle "Complete" which should include both "Completed" and "Served"
                 if (statusFilter.Equals("Complete", StringComparison.OrdinalIgnoreCase) ||
                     statusFilter.Equals("complete", StringComparison.OrdinalIgnoreCase))
                 {
                     _logger.LogInformation("Filtering for Completed or Served orders");
+
+                    // Use the property name which maps to the BSON element "status"
                     filter = Builders<Order>.Filter.In(o => o.Status, new[] { "Completed", "Served" });
                 }
                 else
                 {
+                    // For other statuses like "New", "Preparing", "Ready", split by comma if needed
                     var statuses = statusFilter.Split(',').Select(s => s.Trim()).ToArray();
                     _logger.LogInformation($"Filtering for statuses: [{string.Join(", ", statuses)}]");
 
+                    // Use the property name which maps to the BSON element "status"
                     filter = Builders<Order>.Filter.In(o => o.Status, statuses);
                 }
             }
@@ -370,7 +375,12 @@ namespace TambayanCafeAPI.Services
                 _logger.LogInformation("No status filter applied - returning all orders");
             }
 
-            _logger.LogInformation("Executing MongoDB query with filter...");
+            // Count total orders vs filtered orders to debug
+            var totalOrdersCount = await _orders.CountDocumentsAsync(Builders<Order>.Filter.Empty);
+            var filteredOrdersCount = await _orders.CountDocumentsAsync(filter);
+
+            _logger.LogInformation($"Total orders in database: {totalOrdersCount}");
+            _logger.LogInformation($"Orders matching filter: {filteredOrdersCount}");
 
             var orders = await _orders.Find(filter).SortByDescending(o => o.CreatedAt).Limit(limit).ToListAsync();
 
@@ -378,7 +388,7 @@ namespace TambayanCafeAPI.Services
 
             foreach (var order in orders)
             {
-                _logger.LogInformation($"Order {order.OrderNumber} has status: {order.Status}");
+                _logger.LogInformation($"Order {order.OrderNumber} has status: '{order.Status}'");
             }
 
             return orders;
