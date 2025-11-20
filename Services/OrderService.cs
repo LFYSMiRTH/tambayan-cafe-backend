@@ -345,13 +345,25 @@ namespace TambayanCafeAPI.Services
         public async Task<IEnumerable<Order>> GetOrdersForStaffAsync(int limit, string statusFilter)
         {
             var filter = Builders<Order>.Filter.Empty;
+
             if (!string.IsNullOrEmpty(statusFilter))
             {
-                var statuses = statusFilter.Split(',').Select(s => s.Trim()).ToArray();
-                filter = Builders<Order>.Filter.In(o => o.Status, statuses);
+                // Handle "Complete" which should include both "Completed" and "Served"
+                if (statusFilter.Equals("Complete", StringComparison.OrdinalIgnoreCase) ||
+                    statusFilter.Equals("complete", StringComparison.OrdinalIgnoreCase))
+                {
+                    // For "Complete", we want both "Completed" and "Served"
+                    filter = Builders<Order>.Filter.In(o => o.Status, new[] { "Completed", "Served" });
+                }
+                else
+                {
+                    // For other statuses like "New", "Preparing", "Ready", split by comma if needed
+                    var statuses = statusFilter.Split(',').Select(s => s.Trim()).ToArray();
+                    filter = Builders<Order>.Filter.In(o => o.Status, statuses);
+                }
             }
 
-            var orders = await _orders.Find(filter).Limit(limit).ToListAsync();
+            var orders = await _orders.Find(filter).SortByDescending(o => o.CreatedAt).Limit(limit).ToListAsync();
             return orders;
         }
 
