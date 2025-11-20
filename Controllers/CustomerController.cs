@@ -98,19 +98,6 @@ namespace TambayanCafeSystem.Controllers
             return Ok(favorites);
         }
 
-        [HttpGet("notifications")]
-        public IActionResult GetNotifications([FromQuery] int limit = 5)
-        {
-            if (ValidateCustomerRole() is IActionResult unauthorized)
-                return unauthorized;
-
-            return Ok(new[]
-            {
-                new { message = "Your order #125 is ready for pickup!", createdAt = DateTime.UtcNow.AddMinutes(-5) },
-                new { message = "Weekend promo: 10% off all drinks!", createdAt = DateTime.UtcNow.AddHours(-2) }
-            }.Take(limit));
-        }
-
         [HttpGet("menu")]
         public async Task<IActionResult> GetAvailableMenu()
         {
