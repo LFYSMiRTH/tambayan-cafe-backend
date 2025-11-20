@@ -344,26 +344,45 @@ namespace TambayanCafeAPI.Services
 
         public async Task<IEnumerable<Order>> GetOrdersForStaffAsync(int limit, string statusFilter)
         {
+            _logger.LogInformation($"GetOrdersForStaffAsync called - limit: {limit}, statusFilter: '{statusFilter}'");
+
             var filter = Builders<Order>.Filter.Empty;
 
             if (!string.IsNullOrEmpty(statusFilter))
             {
+                _logger.LogInformation($"Applying filter for status: '{statusFilter}'");
+
                 // Handle "Complete" which should include both "Completed" and "Served"
                 if (statusFilter.Equals("Complete", StringComparison.OrdinalIgnoreCase) ||
                     statusFilter.Equals("complete", StringComparison.OrdinalIgnoreCase))
                 {
-                    // For "Complete", we want both "Completed" and "Served"
+                    _logger.LogInformation("Filtering for Completed or Served orders");
                     filter = Builders<Order>.Filter.In(o => o.Status, new[] { "Completed", "Served" });
                 }
                 else
                 {
                     // For other statuses like "New", "Preparing", "Ready", split by comma if needed
                     var statuses = statusFilter.Split(',').Select(s => s.Trim()).ToArray();
+                    _logger.LogInformation($"Filtering for statuses: [{string.Join(", ", statuses)}]");
                     filter = Builders<Order>.Filter.In(o => o.Status, statuses);
                 }
             }
+            else
+            {
+                _logger.LogInformation("No status filter applied - returning all orders");
+            }
+
+            _logger.LogInformation("Executing MongoDB query with filter...");
 
             var orders = await _orders.Find(filter).SortByDescending(o => o.CreatedAt).Limit(limit).ToListAsync();
+
+            _logger.LogInformation($"Returning {orders.Count} orders");
+
+            foreach (var order in orders)
+            {
+                _logger.LogInformation($"Order {order.OrderNumber} has status: {order.Status}");
+            }
+
             return orders;
         }
 
