@@ -73,6 +73,21 @@ namespace TambayanCafeSystem.Controllers
                 return StatusCode(500, new { message = "An error occurred while updating the order status." });
             }
         }
+
+        [HttpGet("staff/orders")]
+        public async Task<IActionResult> GetOrdersForStaff([FromQuery] int limit = 10, [FromQuery] string statusFilter = null)
+        {
+            try
+            {
+                var orders = await _orderService.GetOrdersForStaffAsync(limit, statusFilter);
+                return Ok(orders);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving orders for staff");
+                return StatusCode(500, new { message = "An error occurred while retrieving orders." });
+            }
+        }
     }
 
     public class UpdateOrderStatusDto

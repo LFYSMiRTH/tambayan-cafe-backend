@@ -315,6 +315,7 @@ namespace TambayanCafeAPI.Services
                 Builders<Order>.Filter.In(o => o.Status, new[] { "Completed", "Served" })
             );
 
+            // Fixed: Use correct statuses for pending orders
             var filterPending = Builders<Order>.Filter.In(o => o.Status, new[] { "New", "Preparing", "Pending" });
 
             var totalOrdersToday = await _orders.CountDocumentsAsync(filterToday);
