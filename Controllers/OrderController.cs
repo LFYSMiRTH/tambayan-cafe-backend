@@ -4,6 +4,7 @@ using TambayanCafeAPI.Models;
 using TambayanCafeAPI.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
+using System.Linq;
 
 namespace TambayanCafeSystem.Controllers
 {
@@ -76,11 +77,12 @@ namespace TambayanCafeSystem.Controllers
 
         // Renamed method to avoid conflict with StaffController
         [HttpGet("orders/staff")]
-        public async Task<IActionResult> GetStaffOrders([FromQuery] int limit = 10, [FromQuery] string statusFilter = null)
+        public async Task<IActionResult> GetStaffOrders([FromQuery] int limit = 10, [FromQuery] string status = null) // Changed parameter name from statusFilter to status
         {
             try
             {
-                var orders = await _orderService.GetOrdersForStaffAsync(limit, statusFilter);
+                // Pass the 'status' parameter to the service method
+                var orders = await _orderService.GetOrdersForStaffAsync(limit, status);
                 return Ok(orders);
             }
             catch (Exception ex)
