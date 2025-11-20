@@ -91,29 +91,6 @@ namespace TambayanCafeSystem.Controllers
                 return StatusCode(500, new { message = "An error occurred while retrieving orders." });
             }
         }
-
-        // ✅ ADD THIS NEW ENDPOINT FOR CUSTOMER ORDERS
-        [HttpGet("customer/orders")]
-        [Authorize(Roles = "customer")]
-        public async Task<IActionResult> GetCustomerOrders([FromQuery] string status = null, [FromQuery] int limit = 100)
-        {
-            try
-            {
-                var customerId = User.FindFirst("id")?.Value; // Get customer ID from JWT token
-                if (string.IsNullOrEmpty(customerId))
-                {
-                    return Unauthorized("Customer ID not found in token.");
-                }
-
-                var orders = await _orderService.GetOrdersByCustomerIdAsync(customerId, limit, status);
-                return Ok(orders);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving orders for customer");
-                return StatusCode(500, new { message = "An error occurred while retrieving your orders." });
-            }
-        }
     }
 
     public class UpdateOrderStatusDto
