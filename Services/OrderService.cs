@@ -352,25 +352,12 @@ namespace TambayanCafeAPI.Services
             {
                 _logger.LogInformation($"Applying filter for status: '{statusFilter}'");
 
-                // Handle "Complete" which should include both "Completed" and "Served"
-                // Check for both capitalized and lowercase versions to match frontend input
-                if (statusFilter.Equals("Complete", StringComparison.OrdinalIgnoreCase) ||
-                    statusFilter.Equals("complete", StringComparison.OrdinalIgnoreCase)) // Added this check
-                {
-                    _logger.LogInformation("Filtering for Completed or Served orders");
+                // Split the statusFilter by comma to handle multiple statuses
+                var statuses = statusFilter.Split(',').Select(s => s.Trim()).ToArray();
+                _logger.LogInformation($"Filtering for statuses: [{string.Join(", ", statuses)}]");
 
-                    // Use the property name which maps to the BSON element "status"
-                    filter = Builders<Order>.Filter.In(o => o.Status, new[] { "Completed", "Served" });
-                }
-                else
-                {
-                    // For other statuses like "New", "Preparing", "Ready", split by comma if needed
-                    var statuses = statusFilter.Split(',').Select(s => s.Trim()).ToArray();
-                    _logger.LogInformation($"Filtering for statuses: [{string.Join(", ", statuses)}]");
-
-                    // Use the property name which maps to the BSON element "status"
-                    filter = Builders<Order>.Filter.In(o => o.Status, statuses);
-                }
+                // Use the property name which maps to the BSON element "status"
+                filter = Builders<Order>.Filter.In(o => o.Status, statuses);
             }
             else
             {
