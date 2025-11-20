@@ -372,14 +372,10 @@ namespace TambayanCafeAPI.Controllers
         public async Task<IActionResult> GetProfile()
         {
             var userId = GetUserIdFromToken();
-            Console.WriteLine($"[DEBUG] Requested user ID: {userId}");
-
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized("User not authenticated.");
 
             var user = await _userService.GetUserProfileAsync(userId);
-            Console.WriteLine($"[DEBUG] User found: {user != null}, ID: {user?.Id}");
-
             if (user == null)
                 return NotFound("User not found.");
 
