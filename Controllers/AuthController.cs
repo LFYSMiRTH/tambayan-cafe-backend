@@ -54,7 +54,7 @@ namespace TambayanCafeAPI.Controllers
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.Name, user.Username),
-                new Claim("id", user.Id),
+                new Claim(ClaimTypes.NameIdentifier, user.Id),
                 new Claim(ClaimTypes.Role, user.Role.ToLowerInvariant()) // ✅ FIXED
             };
 
