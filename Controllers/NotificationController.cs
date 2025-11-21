@@ -57,5 +57,28 @@ namespace TambayanCafeAPI.Controllers
                 return StatusCode(500, new { message = "An error occurred while retrieving notifications." });
             }
         }
+
+        // ✅ ADD THIS ENDPOINT FOR CLEARING CUSTOMER NOTIFICATIONS
+        [HttpPost("customer/notifications/clear")]
+        [Authorize(Roles = "customer")]
+        public async Task<IActionResult> ClearCustomerNotifications()
+        {
+            try
+            {
+                var customerId = User.FindFirst("id")?.Value; // Get customer ID from JWT token
+                if (string.IsNullOrEmpty(customerId))
+                {
+                    return Unauthorized("Customer ID not found in token.");
+                }
+
+                await _notificationService.ClearCustomerNotificationsAsync(customerId);
+                return Ok(new { message = "Notifications cleared successfully." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error clearing notifications for customer");
+                return StatusCode(500, new { message = "An error occurred while clearing notifications." });
+            }
+        }
     }
 }

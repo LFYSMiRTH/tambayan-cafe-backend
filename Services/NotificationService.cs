@@ -76,5 +76,12 @@ namespace TambayanCafeAPI.Services
         {
             await CreateAsync(notification);
         }
+
+        // ✅ ADD THIS METHOD FOR CLEARING CUSTOMER NOTIFICATIONS
+        public async Task ClearCustomerNotificationsAsync(string customerId)
+        {
+            var filter = Builders<Notification>.Filter.Eq(n => n.CustomerId, customerId);
+            await _notifications.DeleteManyAsync(filter);
+        }
     }
 }
