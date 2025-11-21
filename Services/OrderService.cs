@@ -281,7 +281,7 @@ namespace TambayanCafeAPI.Services
             };
         }
 
-        public async Task<List<Order>> GetOrdersByCustomerIdAsync(string customerId, int limit = 3, string status = null)
+        public async Task<List<Order>> GetOrdersByCustomerIdAsync(string customerId, int limit = 20, string status = null)
         {
             var filter = Builders<Order>.Filter.Eq(o => o.CustomerId, customerId);
             if (!string.IsNullOrEmpty(status))
