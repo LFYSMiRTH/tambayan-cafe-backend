@@ -475,7 +475,7 @@ namespace TambayanCafeAPI.Controllers
 
         private string GetUserIdFromToken()
         {
-            return User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return User.FindFirst("id")?.Value;
         }
     }
 }
