@@ -8,6 +8,7 @@ namespace TambayanCafeAPI.Services
     {
         Task<List<Order>> GetOrdersByCustomerIdAsync(string customerId, int limit = 3, string status = null);
         Task<Order> CreateOrderAsync(OrderRequestDto orderRequest);
+        Task<Order> CreateOrderAsyncFromModel(Order order);
 
         Task<object> GetStaffDashboardStatsAsync();
         Task<IEnumerable<Order>> GetOrdersForStaffAsync(int limit, string statusFilter);

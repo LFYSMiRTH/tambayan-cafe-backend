@@ -108,6 +108,75 @@ namespace TambayanCafeAPI.Services
             return order;
         }
 
+        // 👇 NEW METHOD: Create order from full Order model (used for staff/walk-in)
+        public async Task<Order> CreateOrderAsyncFromModel(Order order)
+        {
+            if (order == null)
+                throw new ArgumentNullException(nameof(order));
+
+            // Ensure safe defaults for walk-in
+            order.CustomerId ??= "000000000000000000000000";
+            order.CustomerEmail ??= "walkin@tambayancafe.com";
+            order.CustomerName ??= "Walk-in Customer";
+            order.TableNumber ??= "N/A";
+            order.Status = "New";
+            order.IsCompleted = false;
+            order.CreatedAt = DateTime.UtcNow;
+
+            if (string.IsNullOrEmpty(order.OrderNumber))
+            {
+                order.OrderNumber = GenerateOrderNumber();
+            }
+
+            // Validate items
+            foreach (var item in order.Items)
+            {
+                var product = _productService.GetById(item.ProductId);
+                if (product == null)
+                {
+                    throw new ArgumentException($"Product with ID {item.ProductId} not found.");
+                }
+                if (Math.Abs(item.Price - product.Price) > 0.01m)
+                {
+                    _logger.LogWarning("Price mismatch for item {ProductId}. Used: {UsedPrice}, Actual: {ActualPrice}", item.ProductId, item.Price, product.Price);
+                }
+            }
+
+            var calculatedTotal = order.Items.Sum(item => item.Price * item.Quantity);
+            if (Math.Abs(calculatedTotal - order.TotalAmount) > 0.01m)
+            {
+                throw new ArgumentException("Calculated total does not match provided total.");
+            }
+
+            try
+            {
+                await DeductInventoryForOrderAsync(order);
+                await _orders.InsertOneAsync(order);
+
+                var notification = new Notification
+                {
+                    Message = $"🧾 New order #{order.OrderNumber} received.",
+                    Type = "info",
+                    Category = "order",
+                    RelatedId = order.Id,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _notificationService.CreateAsync(notification);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogError(ex, "Inventory error while creating order for customer {CustomerId}", order.CustomerId);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Database error while creating order for customer {CustomerId}", order.CustomerId);
+                throw;
+            }
+
+            return order;
+        }
+
         private string GenerateOrderNumber()
         {
             return "ORD" + DateTime.UtcNow.ToString("yyyyMMddHHmmssfff");
@@ -315,22 +384,17 @@ namespace TambayanCafeAPI.Services
                 Builders<Order>.Filter.In(o => o.Status, new[] { "Completed", "Served" })
             );
 
-            // Fixed: Use correct statuses for pending orders
             var filterPending = Builders<Order>.Filter.In(o => o.Status, new[] { "New", "Preparing", "Pending" });
 
             var totalOrdersToday = await _orders.CountDocumentsAsync(filterToday);
-
             var totalSalesToday = await _orders
                 .Aggregate()
                 .Match(filterTodayCompleted)
                 .Group(o => 1, g => g.Sum(o => o.TotalAmount))
                 .FirstOrDefaultAsync();
-
             var pendingOrders = await _orders.CountDocumentsAsync(filterPending);
 
             var lowStockThreshold = 5;
-            var lowStockFilter = Builders<InventoryItem>.Filter.Lt(ii => ii.CurrentStock, lowStockThreshold);
-
             var lowStockAlerts = 0;
 
             return new
@@ -351,12 +415,8 @@ namespace TambayanCafeAPI.Services
             if (!string.IsNullOrEmpty(statusFilter))
             {
                 _logger.LogInformation($"Applying filter for status: '{statusFilter}'");
-
-                // Split the statusFilter by comma to handle multiple statuses
                 var statuses = statusFilter.Split(',').Select(s => s.Trim()).ToArray();
                 _logger.LogInformation($"Filtering for statuses: [{string.Join(", ", statuses)}]");
-
-                // Use the property name which maps to the BSON element "status"
                 filter = Builders<Order>.Filter.In(o => o.Status, statuses);
             }
             else
@@ -364,7 +424,6 @@ namespace TambayanCafeAPI.Services
                 _logger.LogInformation("No status filter applied - returning all orders");
             }
 
-            // Count total orders vs filtered orders to debug
             var totalOrdersCount = await _orders.CountDocumentsAsync(Builders<Order>.Filter.Empty);
             var filteredOrdersCount = await _orders.CountDocumentsAsync(filter);
 
@@ -386,13 +445,10 @@ namespace TambayanCafeAPI.Services
         public async Task<Order> UpdateOrderStatusAsync(string orderId, string newStatus)
         {
             var filter = Builders<Order>.Filter.Eq(o => o.Id, orderId);
-
             var isCompleted = (newStatus == "Completed" || newStatus == "Served");
-
             var update = Builders<Order>.Update
                 .Set(o => o.Status, newStatus)
                 .Set(o => o.IsCompleted, isCompleted);
-
             var result = await _orders.UpdateOneAsync(filter, update);
 
             if (result.MatchedCount == 0)
@@ -403,7 +459,6 @@ namespace TambayanCafeAPI.Services
 
             var updatedOrder = await _orders.Find(filter).FirstOrDefaultAsync();
 
-            // ✅ ADD THIS: Trigger notification when status is "Served"
             if (newStatus == "Served")
             {
                 await SendOrderServedNotificationAsync(updatedOrder);
@@ -412,7 +467,6 @@ namespace TambayanCafeAPI.Services
             return updatedOrder;
         }
 
-        // ✅ ADD THIS NEW METHOD
         private async Task SendOrderServedNotificationAsync(Order order)
         {
             var notification = new Notification
@@ -421,8 +475,8 @@ namespace TambayanCafeAPI.Services
                 Type = "success",
                 Category = "order",
                 RelatedId = order.Id,
-                TargetRole = "customer", // ✅ Send to customer
-                CustomerId = order.CustomerId, // ✅ ADD CUSTOMER ID
+                TargetRole = "customer",
+                CustomerId = order.CustomerId,
                 CreatedAt = DateTime.UtcNow
             };
 

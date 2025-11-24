@@ -3,8 +3,8 @@ using System.Threading.Tasks;
 using TambayanCafeAPI.Models;
 using TambayanCafeAPI.Services;
 using Microsoft.Extensions.Logging;
-using Microsoft.AspNetCore.Authorization;
 using System.Linq;
+using System;
 
 namespace TambayanCafeSystem.Controllers
 {
@@ -13,18 +13,18 @@ namespace TambayanCafeSystem.Controllers
     public class OrderController : ControllerBase
     {
         private readonly IOrderService _orderService;
-        private readonly InventoryService _inventoryService; // ✅ Inject InventoryService
+        private readonly InventoryService _inventoryService;
         private readonly ILogger<OrderController> _logger;
 
-        public OrderController(IOrderService orderService, InventoryService inventoryService, ILogger<OrderController> logger) // ✅ Add InventoryService to constructor
+        public OrderController(IOrderService orderService, InventoryService inventoryService, ILogger<OrderController> logger)
         {
             _orderService = orderService;
-            _inventoryService = inventoryService; // ✅ Assign injected service
+            _inventoryService = inventoryService;
             _logger = logger;
         }
 
         [HttpPost("orders")]
-        public async Task<IActionResult> CreateOrder([FromBody] OrderRequestDto orderRequest)
+        public async Task<IActionResult> CreateOrder([FromBody] OrderCreateDto orderRequest)
         {
             try
             {
@@ -33,14 +33,49 @@ namespace TambayanCafeSystem.Controllers
                     return BadRequest(ModelState);
                 }
 
-                var createdOrder = await _orderService.CreateOrderAsync(orderRequest);
+                var order = new Order
+                {
+                    CustomerId = string.IsNullOrWhiteSpace(orderRequest.CustomerId)
+                        ? "000000000000000000000000"
+                        : orderRequest.CustomerId,
+                    CustomerEmail = string.IsNullOrWhiteSpace(orderRequest.CustomerEmail)
+                        ? "walkin@tambayancafe.com"
+                        : orderRequest.CustomerEmail,
+                    CustomerName = string.IsNullOrWhiteSpace(orderRequest.CustomerName)
+                        ? "Walk-in Customer"
+                        : orderRequest.CustomerName,
+                    TableNumber = orderRequest.TableNumber ?? "N/A",
+                    Items = orderRequest.Items.Select(item => new OrderItem
+                    {
+                        ProductId = item.ProductId,
+                        Name = item.Name,
+                        Price = item.Price,
+                        Quantity = item.Quantity,
+                        Size = item.Size,
+                        Mood = item.Mood,
+                        Sugar = item.Sugar
+                    }).ToList(),
+                    TotalAmount = orderRequest.TotalAmount,
+                    PlacedByStaff = orderRequest.PlacedByStaff, // Now valid
+                    UserId = orderRequest.PlacedByStaff ? (orderRequest.StaffId ?? "") : (orderRequest.CustomerId ?? ""),
+                    Status = "New",
+                    CreatedAt = DateTime.UtcNow,
+                    OrderNumber = GenerateOrderNumber()
+                };
+
+                var createdOrder = await _orderService.CreateOrderAsyncFromModel(order);
                 return Ok(createdOrder);
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating order for customer {CustomerId}", orderRequest?.CustomerId);
                 return StatusCode(500, new { message = "An error occurred while processing your order." });
             }
+        }
+
+        private string GenerateOrderNumber()
+        {
+            return $"ORD-{DateTime.UtcNow:yyyyMMddHHmmssfff}";
         }
 
         [HttpPut("orders/{orderId}/status")]
@@ -75,13 +110,11 @@ namespace TambayanCafeSystem.Controllers
             }
         }
 
-        // Renamed method to avoid conflict with StaffController
         [HttpGet("orders/staff")]
-        public async Task<IActionResult> GetStaffOrders([FromQuery] int limit = 100, [FromQuery] string status = null) // Changed parameter name from statusFilter to status
+        public async Task<IActionResult> GetStaffOrders([FromQuery] int limit = 100, [FromQuery] string status = null)
         {
             try
             {
-                // Pass the 'status' parameter to the service method
                 var orders = await _orderService.GetOrdersForStaffAsync(limit, status);
                 return Ok(orders);
             }

@@ -15,10 +15,16 @@ namespace TambayanCafeAPI.Models
         public string UserId { get; set; } = string.Empty;
 
         [BsonElement("customerId")]
-        public string CustomerId { get; set; } = string.Empty;
+        public string CustomerId { get; set; } = "000000000000000000000000";
 
         [BsonElement("customerEmail")]
-        public string CustomerEmail { get; set; } = string.Empty;
+        public string CustomerEmail { get; set; } = "walkin@tambayancafe.com";
+
+        [BsonElement("customerName")]
+        public string CustomerName { get; set; } = "Walk-in Customer";
+
+        [BsonElement("tableNumber")]
+        public string TableNumber { get; set; } = "N/A";
 
         [BsonElement("items")]
         public List<OrderItem> Items { get; set; } = new();
@@ -29,16 +35,16 @@ namespace TambayanCafeAPI.Models
         [BsonElement("isCompleted")]
         public bool IsCompleted { get; set; } = false;
 
+        [BsonElement("placedByStaff")] 
+        public bool PlacedByStaff { get; set; } = false;
+
         [BsonElement("createdAt")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        [BsonElement("orderNumber")] // Add the OrderNumber field
+        [BsonElement("orderNumber")]
         public string OrderNumber { get; set; } = string.Empty;
 
-        [BsonElement("status")] // Add the Status field as a stored value
-        public string Status { get; set; } = "Pending"; // Default status
-
-        // [BsonIgnore]
-        // public string Status => IsCompleted ? "Completed" : "Pending"; // Comment out or remove the computed property if storing the field
+        [BsonElement("status")]
+        public string Status { get; set; } = "New";
     }
 }
