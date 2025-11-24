@@ -14,12 +14,15 @@ namespace TambayanCafeSystem.Controllers
     {
         private readonly IOrderService _orderService;
         private readonly InventoryService _inventoryService;
+        private readonly ICustomerService _customerService; // 👈 Added
         private readonly ILogger<OrderController> _logger;
 
-        public OrderController(IOrderService orderService, InventoryService inventoryService, ILogger<OrderController> logger)
+        // 👇 Updated constructor to inject ICustomerService
+        public OrderController(IOrderService orderService, InventoryService inventoryService, ICustomerService customerService, ILogger<OrderController> logger)
         {
             _orderService = orderService;
             _inventoryService = inventoryService;
+            _customerService = customerService; // 👈 Assigned
             _logger = logger;
         }
 
@@ -33,6 +36,37 @@ namespace TambayanCafeSystem.Controllers
                     return BadRequest(ModelState);
                 }
 
+                // ✅ NEW: Resolve real customer name if CustomerId is provided
+                string customerName = "Walk-in Customer";
+                if (!string.IsNullOrWhiteSpace(orderRequest.CustomerId) &&
+                    orderRequest.CustomerId != "000000000000000000000000")
+                {
+                    try
+                    {
+                        var customer = await _customerService.GetByIdAsync(orderRequest.CustomerId);
+                        if (customer != null)
+                        {
+                            if (!string.IsNullOrWhiteSpace(customer.FirstName) || !string.IsNullOrWhiteSpace(customer.LastName))
+                            {
+                                customerName = $"{customer.FirstName} {customer.LastName}".Trim();
+                            }
+                            else if (!string.IsNullOrWhiteSpace(customer.Username))
+                            {
+                                customerName = customer.Username;
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Could not fetch customer name for ID {CustomerId}", orderRequest.CustomerId);
+                    }
+                }
+                else if (!string.IsNullOrWhiteSpace(orderRequest.CustomerName))
+                {
+                    // Use provided name (e.g., for staff orders)
+                    customerName = orderRequest.CustomerName;
+                }
+
                 var order = new Order
                 {
                     CustomerId = string.IsNullOrWhiteSpace(orderRequest.CustomerId)
@@ -41,9 +75,7 @@ namespace TambayanCafeSystem.Controllers
                     CustomerEmail = string.IsNullOrWhiteSpace(orderRequest.CustomerEmail)
                         ? "walkin@tambayancafe.com"
                         : orderRequest.CustomerEmail,
-                    CustomerName = string.IsNullOrWhiteSpace(orderRequest.CustomerName)
-                        ? "Walk-in Customer"
-                        : orderRequest.CustomerName,
+                    CustomerName = customerName, // 👈 Now correctly set
                     TableNumber = orderRequest.TableNumber ?? "N/A",
                     Items = orderRequest.Items.Select(item => new OrderItem
                     {
@@ -56,7 +88,7 @@ namespace TambayanCafeSystem.Controllers
                         Sugar = item.Sugar
                     }).ToList(),
                     TotalAmount = orderRequest.TotalAmount,
-                    PlacedByStaff = orderRequest.PlacedByStaff, // Now valid
+                    PlacedByStaff = orderRequest.PlacedByStaff,
                     UserId = orderRequest.PlacedByStaff ? (orderRequest.StaffId ?? "") : (orderRequest.CustomerId ?? ""),
                     Status = "New",
                     CreatedAt = DateTime.UtcNow,
