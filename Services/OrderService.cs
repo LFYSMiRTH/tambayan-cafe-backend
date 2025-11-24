@@ -143,7 +143,15 @@ namespace TambayanCafeAPI.Services
 
             order.CustomerId ??= "000000000000000000000000";
             order.CustomerEmail ??= "walkin@tambayancafe.com";
-            order.CustomerName ??= "Walk-in Customer";
+
+            // ✅ Use the CustomerName from the incoming Order object if it's set
+            // Don't re-fetch from CustomerService
+            if (string.IsNullOrWhiteSpace(order.CustomerName))
+            {
+                // Only fall back to "Walk-in Customer" if CustomerName is not provided
+                order.CustomerName = "Walk-in Customer";
+            }
+
             order.TableNumber ??= "N/A";
             order.Status = "New";
             order.IsCompleted = false;
