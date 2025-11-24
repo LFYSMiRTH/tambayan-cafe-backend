@@ -35,6 +35,11 @@ namespace TambayanCafeSystem.Controllers
 
             Request.Body.Position = 0;
 
+            _logger.LogInformation("Received order payload: CustomerId={CustomerId}, CustomerEmail={CustomerEmail}, PlacedByStaff={PlacedByStaff}",
+                orderRequest?.CustomerId,
+                orderRequest?.CustomerEmail,
+                orderRequest?.PlacedByStaff);
+
             if (!ModelState.IsValid)
             {
                 var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage);
@@ -77,7 +82,6 @@ namespace TambayanCafeSystem.Controllers
                         }
                     }
                 }
-                // Note: We do NOT use orderRequest.CustomerName because it doesn't exist
 
                 var order = new Order
                 {
@@ -87,7 +91,7 @@ namespace TambayanCafeSystem.Controllers
                     CustomerEmail = string.IsNullOrWhiteSpace(orderRequest.CustomerEmail)
                         ? "walkin@tambayancafe.com"
                         : orderRequest.CustomerEmail,
-                    CustomerName = customerName, // Set from lookup, not from DTO
+                    CustomerName = customerName, 
                     TableNumber = orderRequest.TableNumber ?? "N/A",
                     Items = orderRequest.Items.Select(item => new OrderItem
                     {
