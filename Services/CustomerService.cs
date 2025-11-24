@@ -1,4 +1,5 @@
 ﻿using System.Threading.Tasks;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using TambayanCafeAPI.Models;
 
@@ -15,10 +16,10 @@ namespace TambayanCafeAPI.Services
 
         public async Task<Customer> GetByIdAsync(string id)
         {
-            if (string.IsNullOrWhiteSpace(id))
+            if (string.IsNullOrWhiteSpace(id) || !ObjectId.TryParse(id, out var objectId))
                 return null;
 
-            var filter = Builders<Customer>.Filter.Eq("_id", id);
+            var filter = Builders<Customer>.Filter.Eq("_id", objectId);
             return await _customers.Find(filter).FirstOrDefaultAsync();
         }
     }
