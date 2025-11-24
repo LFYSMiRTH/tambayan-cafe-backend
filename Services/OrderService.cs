@@ -15,6 +15,7 @@ namespace TambayanCafeAPI.Services
         private readonly ProductService _productService;
         private readonly InventoryService _inventoryService;
         private readonly NotificationService _notificationService;
+        private readonly ICustomerService _customerService; // 👈 ADDED
         private readonly ILogger<OrderService> _logger;
 
         public OrderService(
@@ -22,12 +23,14 @@ namespace TambayanCafeAPI.Services
             ProductService productService,
             InventoryService inventoryService,
             NotificationService notificationService,
+            ICustomerService customerService, // 👈 ADDED
             ILogger<OrderService> logger)
         {
             _orders = database.GetCollection<Order>("orders");
             _productService = productService;
             _inventoryService = inventoryService;
             _notificationService = notificationService;
+            _customerService = customerService; // 👈 ADDED
             _logger = logger;
         }
 
@@ -58,11 +61,34 @@ namespace TambayanCafeAPI.Services
                 throw new ArgumentException("Calculated total does not match provided total.", nameof(orderRequest));
             }
 
+            // 👇 FETCH REAL CUSTOMER NAME IF CUSTOMER ID IS PROVIDED
+            string customerName = "Walk-in Customer";
+            if (!string.IsNullOrEmpty(orderRequest.CustomerId) && orderRequest.CustomerId != "000000000000000000000000")
+            {
+                try
+                {
+                    var customer = await _customerService.GetByIdAsync(orderRequest.CustomerId);
+                    if (customer != null && !string.IsNullOrWhiteSpace(customer.Name))
+                    {
+                        customerName = customer.Name;
+                    }
+                    else if (customer != null && !string.IsNullOrWhiteSpace(customer.Username))
+                    {
+                        customerName = customer.Username;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Could not fetch customer name for ID {CustomerId}", orderRequest.CustomerId);
+                }
+            }
+
             var order = new Order
             {
                 OrderNumber = GenerateOrderNumber(),
                 CustomerId = orderRequest.CustomerId,
                 CustomerEmail = orderRequest.CustomerEmail,
+                CustomerName = customerName, // 👈 NOW SET TO REAL NAME
                 Items = orderRequest.Items.Select(item => new OrderItem
                 {
                     ProductId = item.ProductId,
@@ -108,13 +134,11 @@ namespace TambayanCafeAPI.Services
             return order;
         }
 
-        // 👇 NEW METHOD: Create order from full Order model (used for staff/walk-in)
         public async Task<Order> CreateOrderAsyncFromModel(Order order)
         {
             if (order == null)
                 throw new ArgumentNullException(nameof(order));
 
-            // Ensure safe defaults for walk-in
             order.CustomerId ??= "000000000000000000000000";
             order.CustomerEmail ??= "walkin@tambayancafe.com";
             order.CustomerName ??= "Walk-in Customer";
@@ -128,7 +152,6 @@ namespace TambayanCafeAPI.Services
                 order.OrderNumber = GenerateOrderNumber();
             }
 
-            // Validate items
             foreach (var item in order.Items)
             {
                 var product = _productService.GetById(item.ProductId);

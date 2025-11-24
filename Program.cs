@@ -80,6 +80,9 @@ builder.Services.AddScoped<IInventoryService, InventoryService>();
 // ADD THE MISSING REGISTRATION FOR IMenuItemService
 builder.Services.AddScoped<IMenuItemService, ProductService>();
 
+// ✅ 👇 NEW: Register Customer Services (ADDED THIS LINE)
+builder.Services.AddScoped<ICustomerService, CustomerService>();
+
 builder.Services.AddSingleton<IReportService>(sp =>
 {
     var orderService = sp.GetRequiredService<OrderService>();
