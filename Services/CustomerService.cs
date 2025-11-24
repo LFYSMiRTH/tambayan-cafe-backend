@@ -10,7 +10,7 @@ namespace TambayanCafeAPI.Services
 
         public CustomerService(IMongoDatabase database)
         {
-            _customers = database.GetCollection<Customer>("customers");
+            _customers = database.GetCollection<Customer>("users");
         }
 
         public async Task<Customer> GetByIdAsync(string id)

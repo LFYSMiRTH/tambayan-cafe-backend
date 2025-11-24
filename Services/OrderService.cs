@@ -15,7 +15,7 @@ namespace TambayanCafeAPI.Services
         private readonly ProductService _productService;
         private readonly InventoryService _inventoryService;
         private readonly NotificationService _notificationService;
-        private readonly ICustomerService _customerService; // 👈 ADDED
+        private readonly ICustomerService _customerService;
         private readonly ILogger<OrderService> _logger;
 
         public OrderService(
@@ -23,14 +23,14 @@ namespace TambayanCafeAPI.Services
             ProductService productService,
             InventoryService inventoryService,
             NotificationService notificationService,
-            ICustomerService customerService, // 👈 ADDED
+            ICustomerService customerService,
             ILogger<OrderService> logger)
         {
             _orders = database.GetCollection<Order>("orders");
             _productService = productService;
             _inventoryService = inventoryService;
             _notificationService = notificationService;
-            _customerService = customerService; // 👈 ADDED
+            _customerService = customerService;
             _logger = logger;
         }
 
@@ -61,20 +61,22 @@ namespace TambayanCafeAPI.Services
                 throw new ArgumentException("Calculated total does not match provided total.", nameof(orderRequest));
             }
 
-            // 👇 FETCH REAL CUSTOMER NAME IF CUSTOMER ID IS PROVIDED
             string customerName = "Walk-in Customer";
             if (!string.IsNullOrEmpty(orderRequest.CustomerId) && orderRequest.CustomerId != "000000000000000000000000")
             {
                 try
                 {
                     var customer = await _customerService.GetByIdAsync(orderRequest.CustomerId);
-                    if (customer != null && !string.IsNullOrWhiteSpace(customer.Name))
+                    if (customer != null)
                     {
-                        customerName = customer.Name;
-                    }
-                    else if (customer != null && !string.IsNullOrWhiteSpace(customer.Username))
-                    {
-                        customerName = customer.Username;
+                        if (!string.IsNullOrWhiteSpace(customer.FirstName) || !string.IsNullOrWhiteSpace(customer.LastName))
+                        {
+                            customerName = $"{customer.FirstName} {customer.LastName}".Trim();
+                        }
+                        else if (!string.IsNullOrWhiteSpace(customer.Username))
+                        {
+                            customerName = customer.Username;
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -88,7 +90,7 @@ namespace TambayanCafeAPI.Services
                 OrderNumber = GenerateOrderNumber(),
                 CustomerId = orderRequest.CustomerId,
                 CustomerEmail = orderRequest.CustomerEmail,
-                CustomerName = customerName, // 👈 NOW SET TO REAL NAME
+                CustomerName = customerName,
                 Items = orderRequest.Items.Select(item => new OrderItem
                 {
                     ProductId = item.ProductId,
