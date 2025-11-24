@@ -134,6 +134,12 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+app.Use((context, next) =>
+{
+    context.Request.EnableBuffering();
+    return next();
+});
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

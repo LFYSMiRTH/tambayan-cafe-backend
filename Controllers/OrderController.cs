@@ -29,6 +29,18 @@ namespace TambayanCafeSystem.Controllers
         [HttpPost("orders")]
         public async Task<IActionResult> CreateOrder([FromBody] OrderCreateDto orderRequest)
         {
+            using var reader = new StreamReader(Request.Body);
+            var body = await reader.ReadToEndAsync();
+            _logger.LogInformation("Raw order request body: {Body}", body);
+
+            Request.Body.Position = 0;
+
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage);
+                _logger.LogWarning("Model validation failed: {Errors}", string.Join(", ", errors));
+                return BadRequest(ModelState);
+            }
             try
             {
                 if (!ModelState.IsValid)

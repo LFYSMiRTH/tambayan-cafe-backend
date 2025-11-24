@@ -1,17 +1,28 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System.Text.Json.Serialization;
 
 namespace TambayanCafeAPI.Models
 {
     public class OrderCreateDto
     {
+        [JsonPropertyName("customerId")]
         public string? CustomerId { get; set; }
+
+        [JsonPropertyName("customerEmail")]
         public string? CustomerEmail { get; set; }
+
+        [JsonPropertyName("tableNumber")]
         public string? TableNumber { get; set; }
-        [Required]
+
+        [JsonPropertyName("items")]
         public List<OrderItemDto> Items { get; set; } = new();
-        [Required]
+
+        [JsonPropertyName("totalAmount")]
         public decimal TotalAmount { get; set; }
+
+        [JsonPropertyName("placedByStaff")]
         public bool PlacedByStaff { get; set; }
+
+        [JsonPropertyName("staffId")]
         public string? StaffId { get; set; }
     }
 }
