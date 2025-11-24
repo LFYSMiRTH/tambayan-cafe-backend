@@ -403,12 +403,16 @@ namespace TambayanCafeAPI.Services
 
         public async Task<object> GetStaffDashboardStatsAsync()
         {
-            var startOfDay = DateTime.UtcNow.Date;
-            var endOfDay = startOfDay.AddDays(1);
+            var phTimeNow = DateTime.UtcNow.AddHours(8);
+            var startOfPhDay = phTimeNow.Date;
+            var endOfPhDay = startOfPhDay.AddDays(1);
+
+            var startOfPhDayUtc = startOfPhDay.Subtract(TimeSpan.FromHours(8));
+            var endOfPhDayUtc = endOfPhDay.Subtract(TimeSpan.FromHours(8));
 
             var filterToday = Builders<Order>.Filter.And(
-                Builders<Order>.Filter.Gte(o => o.CreatedAt, startOfDay),
-                Builders<Order>.Filter.Lt(o => o.CreatedAt, endOfDay),
+                Builders<Order>.Filter.Gte(o => o.CreatedAt, startOfPhDayUtc),
+                Builders<Order>.Filter.Lt(o => o.CreatedAt, endOfPhDayUtc),
                 Builders<Order>.Filter.Ne(o => o.Status, "Cancelled")
             );
 

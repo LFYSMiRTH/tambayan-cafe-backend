@@ -9,11 +9,14 @@ namespace TambayanCafeAPI.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public string Id { get; set; } = string.Empty;
 
+        [BsonElement("name")]
+        public string? Name { get; set; }
+
         [BsonElement("firstName")]
-        public string FirstName { get; set; } = string.Empty;
+        public string? FirstName { get; set; }
 
         [BsonElement("lastName")]
-        public string LastName { get; set; } = string.Empty;
+        public string? LastName { get; set; }
 
         [BsonElement("username")]
         public string Username { get; set; } = string.Empty;

@@ -56,7 +56,6 @@ namespace TambayanCafeSystem.Controllers
                 string customerName = "Walk-in Customer";
                 string customerId = orderRequest.CustomerId ?? "";
 
-                // Only resolve real name for valid customer IDs (online orders)
                 if (!string.IsNullOrWhiteSpace(customerId) && customerId != "000000000000000000000000")
                 {
                     if (ObjectId.TryParse(customerId, out var objectId))
@@ -66,9 +65,17 @@ namespace TambayanCafeSystem.Controllers
                             var customer = await _customerService.GetByIdAsync(customerId);
                             if (customer != null)
                             {
-                                if (!string.IsNullOrWhiteSpace(customer.FirstName) || !string.IsNullOrWhiteSpace(customer.LastName))
+                                if (!string.IsNullOrWhiteSpace(customer.Name))
                                 {
-                                    customerName = $"{customer.FirstName} {customer.LastName}".Trim();
+                                    customerName = customer.Name.Trim();
+                                }
+                                else if (!string.IsNullOrWhiteSpace(customer.FirstName) || !string.IsNullOrWhiteSpace(customer.LastName))
+                                {
+                                    customerName = $"{(customer.FirstName ?? "").Trim()} {(customer.LastName ?? "").Trim()}".Trim();
+                                    if (string.IsNullOrEmpty(customerName))
+                                    {
+                                        customerName = customer.Username;
+                                    }
                                 }
                                 else if (!string.IsNullOrWhiteSpace(customer.Username))
                                 {
