@@ -88,6 +88,20 @@ namespace TambayanCafeSystem.Controllers
             if (string.IsNullOrWhiteSpace(updatedItem.Name))
                 return BadRequest("Name is required.");
 
+            var existingProduct = _productService.GetById(id);
+            if (existingProduct == null)
+                return NotFound();
+
+            // Preserve ingredients from the existing product
+            updatedItem.Ingredients = existingProduct.Ingredients;
+
+            // ✅ Auto-sync IsAvailable for pre-made items (no ingredients)
+            var usesIngredients = updatedItem.Ingredients != null && updatedItem.Ingredients.Any();
+            if (!usesIngredients)
+            {
+                updatedItem.IsAvailable = updatedItem.StockQuantity > 0;
+            }
+
             _productService.Update(id, updatedItem);
             return Ok();
         }
@@ -253,9 +267,9 @@ namespace TambayanCafeSystem.Controllers
                 try
                 {
                     var client = new SendGrid.SendGridClient(apiKey);
-                    var from = new SendGrid.Helpers.Mail.EmailAddress("johntimothyyanto@gmail.com", "TBYN Café Admin");
+                    var from = new SendGrid.Helpers.Mail.EmailAddress("johntimothyyanto@gmail.com", "TMBYN Café Admin");
                     var to = new SendGrid.Helpers.Mail.EmailAddress(createdUser.Email);
-                    var subject = "Welcome to TBYN Café – Your Account is Ready!";
+                    var subject = "Welcome to TMBYN Café – Your Account is Ready!";
                     var htmlContent = $@"
                         <p>Hi <strong>{System.Net.WebUtility.HtmlEncode(createdUser.Name ?? createdUser.Username)}</strong>,</p>
                         <p>You've been added as a <strong>{System.Net.WebUtility.HtmlEncode(createdUser.Role)}</strong> to TBYN Café.</p>
@@ -356,7 +370,7 @@ namespace TambayanCafeSystem.Controllers
                 try
                 {
                     var client = new SendGrid.SendGridClient(apiKey);
-                    var from = new SendGrid.Helpers.Mail.EmailAddress("johntimothyyanto@gmail.com", "TBYN Café Admin");
+                    var from = new SendGrid.Helpers.Mail.EmailAddress("johntimothyyanto@gmail.com", "TMBYN Café Admin");
                     var to = new SendGrid.Helpers.Mail.EmailAddress(user.Email);
                     var subject = "Your Password Has Been Reset";
                     var htmlContent = $@"
