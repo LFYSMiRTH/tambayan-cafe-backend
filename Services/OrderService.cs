@@ -496,7 +496,7 @@ namespace TambayanCafeAPI.Services
 
             var updatedOrder = await _orders.Find(filter).FirstOrDefaultAsync();
 
-            if (newStatus == "Served")
+            if (newStatus == "Served" || newStatus == "Completed")
             {
                 await SendOrderServedNotificationAsync(updatedOrder);
             }
