@@ -122,6 +122,17 @@ namespace TambayanCafeAPI.Services
                     CreatedAt = DateTime.UtcNow
                 };
                 await _notificationService.CreateAsync(notification);
+
+                var staffNotification = new Notification
+                {
+                    Message = $"🧾 New order #{order.OrderNumber} received.",
+                    Type = "info",
+                    Category = "order",
+                    RelatedId = order.Id,
+                    TargetRole = "staff",
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _notificationService.CreateAsync(staffNotification);
             }
             catch (InvalidOperationException ex)
             {
@@ -197,6 +208,17 @@ namespace TambayanCafeAPI.Services
                     CreatedAt = DateTime.UtcNow
                 };
                 await _notificationService.CreateAsync(notification);
+
+                var staffNotification = new Notification
+                {
+                    Message = $"🧾 New order #{order.OrderNumber} received.",
+                    Type = "info",
+                    Category = "order",
+                    RelatedId = order.Id,
+                    TargetRole = "staff",
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _notificationService.CreateAsync(staffNotification);
             }
             catch (InvalidOperationException ex)
             {
