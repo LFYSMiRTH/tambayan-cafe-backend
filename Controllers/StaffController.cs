@@ -252,26 +252,28 @@ namespace TambayanCafeSystem.Controllers
 
         // GET api/staff/notifications?limit=5
         [HttpGet("notifications")]
-        public async Task<IActionResult> GetNotifications([FromQuery] int limit = 5)
+        public async Task<IActionResult> GetNotifications([FromQuery] int limit = 20)
         {
             if (ValidateStaffRole() is IActionResult unauthorizedResult)
                 return unauthorizedResult;
 
             try
             {
-                var notifications = new[]
-                {
-                    new { message = "Order #201 is now ready for pickup!", createdAt = DateTime.UtcNow.AddMinutes(-2) },
-                    new { message = "New customer feedback received.", createdAt = DateTime.UtcNow.AddHours(-1) },
-                    new { message = "Inventory item 'Coffee Beans' is running low.", createdAt = DateTime.UtcNow.AddHours(-3) }
-                }.Take(limit).ToArray();
+                var staffNotifications = await _notificationService.GetNotificationsForRoleAsync("staff", limit);
+                var adminNotifications = await _notificationService.GetNotificationsForRoleAsync("admin", limit);
 
-                return Ok(notifications);
+                var all = staffNotifications
+                    .Concat(adminNotifications)
+                    .OrderByDescending(n => n.CreatedAt)
+                    .Take(limit)
+                    .ToList();
+
+                return Ok(all);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching notifications for staff ID {StaffId}", User.FindFirst("id")?.Value);
-                return StatusCode(500, new { message = "An error occurred while retrieving notifications." });
+                return StatusCode(500, new { message = "Failed to load notifications." });
             }
         }
 
