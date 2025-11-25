@@ -516,8 +516,29 @@ namespace TambayanCafeAPI.Services
                 CustomerId = order.CustomerId,
                 CreatedAt = DateTime.UtcNow
             };
-
             await _notificationService.CreateAsync(notification);
+
+            var adminNotification = new Notification
+            {
+                Message = $"🧾 New order #{order.OrderNumber} received.",
+                Type = "info",
+                Category = "order",
+                RelatedId = order.Id,
+                TargetRole = "admin",
+                CreatedAt = DateTime.UtcNow
+            };
+            await _notificationService.CreateAsync(adminNotification);
+
+            var staffNotification = new Notification
+            {
+                Message = $"🧾 New order #{order.OrderNumber} received.",
+                Type = "info",
+                Category = "order",
+                RelatedId = order.Id,
+                TargetRole = "staff",
+                CreatedAt = DateTime.UtcNow
+            };
+            await _notificationService.CreateAsync(staffNotification);
         }
 
         public async Task<Order> GetOrderByIdAsync(string orderId)
