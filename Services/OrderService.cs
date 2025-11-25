@@ -226,15 +226,15 @@ namespace TambayanCafeAPI.Services
                 }
 
                 var requestedQty = orderItem.Quantity;
-                var hasIngredients = product.Ingredients != null && product.Ingredients.Any();
-                var hasProductStock = product.StockQuantity > 0;
+                var usesIngredients = product.Ingredients != null && product.Ingredients.Any();
+                var isPreMade = !usesIngredients;
 
-                if (hasProductStock)
+                if (isPreMade)
                 {
                     if (product.StockQuantity < requestedQty)
                     {
                         throw new InvalidOperationException(
-                            $"❌ Only {product.StockQuantity} pre-made '{product.Name}' available, but {requestedQty} ordered.");
+                            $"❌ Only {product.StockQuantity} '{product.Name}' available, but {requestedQty} ordered.");
                     }
 
                     var filter = Builders<Product>.Filter.And(
@@ -254,7 +254,7 @@ namespace TambayanCafeAPI.Services
                         requestedQty, product.Name, product.StockQuantity - requestedQty);
                 }
 
-                if (hasIngredients)
+                if (usesIngredients)
                 {
                     foreach (var ingredient in product.Ingredients)
                     {
@@ -291,7 +291,7 @@ namespace TambayanCafeAPI.Services
                     }
                 }
 
-                if (!hasProductStock && !hasIngredients)
+                if (!isPreMade && !usesIngredients)
                 {
                     _logger.LogWarning("Product '{Product}' has no stock tracking — assuming unlimited.", product.Name);
                 }
