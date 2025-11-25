@@ -193,6 +193,7 @@ namespace TambayanCafeAPI.Services
                     Type = "info",
                     Category = "order",
                     RelatedId = order.Id,
+                    TargetRole = "admin",
                     CreatedAt = DateTime.UtcNow
                 };
                 await _notificationService.CreateAsync(notification);
