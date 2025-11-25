@@ -250,7 +250,6 @@ namespace TambayanCafeSystem.Controllers
             }
         }
 
-        // GET api/staff/notifications?limit=5
         [HttpGet("notifications")]
         public async Task<IActionResult> GetNotifications([FromQuery] int limit = 20)
         {
@@ -259,16 +258,9 @@ namespace TambayanCafeSystem.Controllers
 
             try
             {
-                var staffNotifications = await _notificationService.GetNotificationsForRoleAsync("staff", limit);
-                var adminNotifications = await _notificationService.GetNotificationsForRoleAsync("admin", limit);
-
-                var all = staffNotifications
-                    .Concat(adminNotifications)
-                    .OrderByDescending(n => n.CreatedAt)
-                    .Take(limit)
-                    .ToList();
-
-                return Ok(all);
+             
+                var notifications = await _notificationService.GetNotificationsForRoleAsync("staff", limit);
+                return Ok(notifications);
             }
             catch (Exception ex)
             {
