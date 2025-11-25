@@ -42,22 +42,6 @@ namespace TambayanCafeAPI.Controllers
             }
         }
 
-        [HttpGet("staff/notifications")]
-        [Authorize(Roles = "staff,admin")]
-        public async Task<IActionResult> GetStaffNotifications([FromQuery] int limit = 5)
-        {
-            try
-            {
-                var notifications = await _notificationService.GetNotificationsForRoleAsync("staff", limit);
-                return Ok(notifications);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving notifications for staff");
-                return StatusCode(500, new { message = "An error occurred while retrieving notifications." });
-            }
-        }
-
         // ✅ ADD THIS ENDPOINT FOR CLEARING CUSTOMER NOTIFICATIONS
         [HttpPost("customer/notifications/clear")]
         [Authorize(Roles = "customer")]
