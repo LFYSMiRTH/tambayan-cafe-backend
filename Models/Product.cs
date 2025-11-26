@@ -31,7 +31,6 @@ namespace TambayanCafeAPI.Models
         [BsonElement("imageUrl")]
         public string? ImageUrl { get; set; }
 
-        // ===== CUSTOMIZATION OPTIONS =====
         [BsonElement("hasSizes")]
         public bool HasSizes { get; set; } = false;
 
