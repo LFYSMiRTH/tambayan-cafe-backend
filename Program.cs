@@ -64,24 +64,20 @@ catch (Exception ex)
     throw;
 }
 
-// Register services with their dependencies
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<ProductService>();
-// ✅ Register InventoryService with NotificationService and ILogger
 builder.Services.AddScoped<InventoryService>();
 builder.Services.AddScoped<SupplierService>();
-builder.Services.AddScoped<NotificationService>(); // Ensure NotificationService is registered first
+builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<ReorderService>();
 builder.Services.AddScoped<OrderService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<ISupplierService, SupplierService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
-// ADD THE MISSING REGISTRATION FOR IMenuItemService
 builder.Services.AddScoped<IMenuItemService, ProductService>();
-
-// ✅ 👇 NEW: Register Customer Services (ADDED THIS LINE)
 builder.Services.AddScoped<ICustomerService, CustomerService>();
+builder.Services.AddScoped<IProductService, ProductService>();
 
 builder.Services.AddSingleton<IReportService>(sp =>
 {
@@ -146,7 +142,6 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// ✅ UseCors must be called before UseAuthentication and UseAuthorization
 app.UseCors("AllowFrontend");
 
 app.UseHttpsRedirection();

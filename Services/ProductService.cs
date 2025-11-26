@@ -4,16 +4,16 @@ using MongoDB.Bson;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Linq;
+using Microsoft.Extensions.Logging;
 
 namespace TambayanCafeAPI.Services
 {
-    public class ProductService : IMenuItemService
+    public class ProductService : IMenuItemService, IProductService
     {
         private readonly IMongoCollection<Product> _products;
         private readonly InventoryService _inventoryService;
         private readonly ILogger<ProductService> _logger;
 
-        // 🔥 NEW: Inject InventoryService & ILogger
         public ProductService(IMongoDatabase database, InventoryService inventoryService, ILogger<ProductService> logger = null)
         {
             _products = database.GetCollection<Product>("products");
@@ -25,7 +25,6 @@ namespace TambayanCafeAPI.Services
 
         public List<Product> GetAll() => _products.Find(_ => true).ToList();
 
-        // Add the GetById method
         public Product GetById(string id)
         {
             if (!ObjectId.TryParse(id, out var objectId))
@@ -35,7 +34,6 @@ namespace TambayanCafeAPI.Services
             return _products.Find(filter).FirstOrDefault();
         }
 
-        // 🔥 NEW: Expose collection for atomic updates (e.g., stock deduction in OrderService)
         public IMongoCollection<Product> GetCollection() => _products;
 
         public void Update(string id, Product product)
@@ -69,15 +67,12 @@ namespace TambayanCafeAPI.Services
         public long GetLowStockCount() =>
             _products.CountDocuments(p => p.StockQuantity <= (p.LowStockThreshold > 0 ? p.LowStockThreshold : 5));
 
-        // 🔥 REPLACED: Smart availability — checks BOTH IsAvailable AND ingredient stock
         public async Task<List<Product>> GetAvailableMenuItemsAsync()
         {
-            // 1. Get all products marked as manually available
             var candidateProducts = await _products
                 .Find(p => p.IsAvailable == true)
                 .ToListAsync();
 
-            // 2. Get all inventory items in one query
             var allInventory = await _inventoryService.GetAllInventoryItemsAsync();
             var inventoryDict = allInventory.ToDictionary(i => i.Id, i => i);
 
@@ -87,7 +82,6 @@ namespace TambayanCafeAPI.Services
             {
                 bool canFulfill = true;
 
-                // Check each ingredient
                 foreach (var ingredient in product.Ingredients)
                 {
                     if (!inventoryDict.TryGetValue(ingredient.InventoryItemId, out var invItem))
@@ -97,7 +91,6 @@ namespace TambayanCafeAPI.Services
                         break;
                     }
 
-                    // Can we make at least 1 unit?
                     if (invItem.CurrentStock < ingredient.QuantityRequired)
                     {
                         canFulfill = false;
@@ -114,7 +107,6 @@ namespace TambayanCafeAPI.Services
             return trulyAvailable;
         }
 
-        // 🔥 NEW: For Admin UI — all products with computed availability & reason
         public async Task<List<ProductWithAvailabilityDto>> GetProductsWithAvailabilityAsync()
         {
             var allProducts = await _products.Find(_ => true).ToListAsync();
@@ -137,7 +129,6 @@ namespace TambayanCafeAPI.Services
                     UnavailableReason = ""
                 };
 
-                // If manually disabled, skip auto-check
                 if (!product.IsAvailable)
                 {
                     dto.UnavailableReason = "Manually disabled";
@@ -145,7 +136,6 @@ namespace TambayanCafeAPI.Services
                     continue;
                 }
 
-                // Check ingredient sufficiency
                 bool canFulfill = true;
                 foreach (var ingredient in product.Ingredients)
                 {
@@ -171,7 +161,6 @@ namespace TambayanCafeAPI.Services
                 }
 
                 result.Add(dto);
-                result.Add(dto);
             }
 
             return result;
@@ -179,9 +168,41 @@ namespace TambayanCafeAPI.Services
 
         public async Task<List<Product>> GetTopSellingMenuItemsAsync(int limit = 5)
         {
-            // Only return available items (smart-available)
             var available = await GetAvailableMenuItemsAsync();
             return available.Take(limit).ToList();
+        }
+
+        public async Task<Product> GetByIdAsync(string id)
+        {
+            return GetById(id);
+        }
+
+        public async Task UpdateAsync(Product product)
+        {
+            if (string.IsNullOrEmpty(product?.Id))
+                throw new ArgumentException("Product ID is required.", nameof(product));
+
+            Update(product.Id, product);
+        }
+
+        public async Task<List<Product>> GetAllAsync()
+        {
+            return GetAll();
+        }
+
+        public async Task<bool> TryDeductStockAsync(string productId, int quantity)
+        {
+            if (quantity <= 0) return false;
+
+            var product = await GetByIdAsync(productId);
+            if (product == null) return false;
+
+            if (product.StockQuantity < quantity)
+                return false;
+
+            product.StockQuantity -= quantity;
+            await UpdateAsync(product);
+            return true;
         }
     }
 }

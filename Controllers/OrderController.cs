@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using System.Linq;
 using System;
 using MongoDB.Bson;
+using System.IO;
 
 namespace TambayanCafeSystem.Controllers
 {
@@ -16,13 +17,15 @@ namespace TambayanCafeSystem.Controllers
         private readonly IOrderService _orderService;
         private readonly InventoryService _inventoryService;
         private readonly ICustomerService _customerService;
+        private readonly IProductService _productService;
         private readonly ILogger<OrderController> _logger;
 
-        public OrderController(IOrderService orderService, InventoryService inventoryService, ICustomerService customerService, ILogger<OrderController> logger)
+        public OrderController(IOrderService orderService, InventoryService inventoryService, ICustomerService customerService, IProductService productService, ILogger<OrderController> logger)
         {
             _orderService = orderService;
             _inventoryService = inventoryService;
             _customerService = customerService;
+            _productService = productService;
             _logger = logger;
         }
 
@@ -51,6 +54,34 @@ namespace TambayanCafeSystem.Controllers
                 if (!ModelState.IsValid)
                 {
                     return BadRequest(ModelState);
+                }
+
+                foreach (var item in orderRequest.Items)
+                {
+                    var product = await _productService.GetByIdAsync(item.ProductId);
+                    if (product == null)
+                    {
+                        return BadRequest($"Product with ID {item.ProductId} not found.");
+                    }
+
+                    if (!product.IsAvailable)
+                    {
+                        return BadRequest($"Product '{product.Name}' is currently unavailable.");
+                    }
+
+                    if (item.Quantity > product.StockQuantity)
+                    {
+                        return BadRequest($"Insufficient stock for '{product.Name}'. Only {product.StockQuantity} available, but {item.Quantity} requested.");
+                    }
+                }
+
+                foreach (var item in orderRequest.Items)
+                {
+                    var success = await _productService.TryDeductStockAsync(item.ProductId, item.Quantity);
+                    if (!success)
+                    {
+                        return StatusCode(500, "Failed to deduct stock. Please try again.");
+                    }
                 }
 
                 string customerName = "Walk-in Customer";
@@ -98,7 +129,7 @@ namespace TambayanCafeSystem.Controllers
                     CustomerEmail = string.IsNullOrWhiteSpace(orderRequest.CustomerEmail)
                         ? "walkin@tambayancafe.com"
                         : orderRequest.CustomerEmail,
-                    CustomerName = customerName, 
+                    CustomerName = customerName,
                     TableNumber = orderRequest.TableNumber ?? "N/A",
                     Items = orderRequest.Items.Select(item => new OrderItem
                     {
