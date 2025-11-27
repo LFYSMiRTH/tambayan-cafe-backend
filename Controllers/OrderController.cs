@@ -158,7 +158,7 @@ namespace TambayanCafeSystem.Controllers
                         Mood = item.Mood,
                         Sugar = item.Sugar
                     }).ToList(),
-                    TotalAmount = orderRequest.TotalAmount + deliveryFee, // Include delivery fee
+                    TotalAmount = orderRequest.TotalAmount + deliveryFee,
                     PlacedByStaff = orderRequest.PlacedByStaff,
                     UserId = orderRequest.PlacedByStaff
                     ? (!string.IsNullOrWhiteSpace(orderRequest.StaffId) ? orderRequest.StaffId : "000000000000000000000000")
@@ -166,7 +166,6 @@ namespace TambayanCafeSystem.Controllers
                     Status = "New",
                     CreatedAt = DateTime.UtcNow,
                     OrderNumber = GenerateOrderNumber(),
-
                     PaymentMethod = string.IsNullOrWhiteSpace(orderRequest.PaymentMethod)
                         ? "Cash"
                         : orderRequest.PaymentMethod
@@ -180,6 +179,16 @@ namespace TambayanCafeSystem.Controllers
                 _logger.LogError(ex, "Error creating order for customer {CustomerId}", orderRequest?.CustomerId);
                 return StatusCode(500, new { message = "An error occurred while processing your order." });
             }
+        }
+
+        [HttpPost("delivery-fee")]
+        public async Task<IActionResult> GetDeliveryFee([FromBody] DeliveryFeeRequestDto request)
+        {
+            if (string.IsNullOrWhiteSpace(request?.Address))
+                return Ok(new { fee = 80m });
+
+            var fee = await _deliveryFeeService.CalculateDeliveryFeeAsync(request.Address);
+            return Ok(new { fee });
         }
 
         private string GenerateOrderNumber()
@@ -263,5 +272,10 @@ namespace TambayanCafeSystem.Controllers
     public class UpdateOrderStatusDto
     {
         public string Status { get; set; }
+    }
+
+    public class DeliveryFeeRequestDto
+    {
+        public string Address { get; set; }
     }
 }
