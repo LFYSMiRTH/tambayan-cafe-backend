@@ -49,5 +49,11 @@ namespace TambayanCafeAPI.Models
 
         [BsonElement("paymentMethod")]
         public string PaymentMethod { get; set; } = "Cash";
+
+        [BsonElement("deliveryFee")]
+        public decimal DeliveryFee { get; set; }
+
+        [BsonElement("deliveryAddress")]
+        public string? DeliveryAddress { get; set; }
     }
 }

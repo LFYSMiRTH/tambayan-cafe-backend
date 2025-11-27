@@ -78,6 +78,7 @@ builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IMenuItemService, ProductService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<IDeliveryFeeService, DeliveryFeeService>();
 
 builder.Services.AddSingleton<IReportService>(sp =>
 {

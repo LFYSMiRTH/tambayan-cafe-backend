@@ -27,5 +27,7 @@ namespace TambayanCafeAPI.Models
 
         [JsonPropertyName("paymentMethod")]
         public string? PaymentMethod { get; set; }
+
+        public string? DeliveryAddress { get; set; }
     }
 }

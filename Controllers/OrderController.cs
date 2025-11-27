@@ -19,14 +19,16 @@ namespace TambayanCafeSystem.Controllers
         private readonly ICustomerService _customerService;
         private readonly IProductService _productService;
         private readonly ILogger<OrderController> _logger;
+        private readonly IDeliveryFeeService _deliveryFeeService;
 
-        public OrderController(IOrderService orderService, InventoryService inventoryService, ICustomerService customerService, IProductService productService, ILogger<OrderController> logger)
+        public OrderController(IOrderService orderService, InventoryService inventoryService, ICustomerService customerService, IProductService productService, ILogger<OrderController> logger, IDeliveryFeeService deliveryFeeService)
         {
             _orderService = orderService;
             _inventoryService = inventoryService;
             _customerService = customerService;
             _productService = productService;
             _logger = logger;
+            _deliveryFeeService = deliveryFeeService;
         }
 
         [HttpPost("orders")]
@@ -84,6 +86,19 @@ namespace TambayanCafeSystem.Controllers
                     }
                 }
 
+                // ====== DELIVERY FEE CALCULATION ======
+                decimal deliveryFee = 0.0m;
+                string deliveryAddress = string.Empty;
+
+                // Only calculate delivery fee if it's NOT a walk-in order
+                bool isWalkIn = string.IsNullOrWhiteSpace(orderRequest.CustomerId) || orderRequest.CustomerId == "000000000000000000000000";
+                if (!isWalkIn && !string.IsNullOrWhiteSpace(orderRequest.DeliveryAddress))
+                {
+                    deliveryAddress = orderRequest.DeliveryAddress.Trim();
+                    deliveryFee = await _deliveryFeeService.CalculateDeliveryFeeAsync(deliveryAddress);
+                }
+                // ======================================
+
                 string customerName = "Walk-in Customer";
                 string customerId = orderRequest.CustomerId ?? "";
 
@@ -131,6 +146,8 @@ namespace TambayanCafeSystem.Controllers
                         : orderRequest.CustomerEmail,
                     CustomerName = customerName,
                     TableNumber = orderRequest.TableNumber ?? "N/A",
+                    DeliveryAddress = deliveryAddress,
+                    DeliveryFee = deliveryFee,
                     Items = orderRequest.Items.Select(item => new OrderItem
                     {
                         ProductId = item.ProductId,
@@ -141,7 +158,7 @@ namespace TambayanCafeSystem.Controllers
                         Mood = item.Mood,
                         Sugar = item.Sugar
                     }).ToList(),
-                    TotalAmount = orderRequest.TotalAmount,
+                    TotalAmount = orderRequest.TotalAmount + deliveryFee, // Include delivery fee
                     PlacedByStaff = orderRequest.PlacedByStaff,
                     UserId = orderRequest.PlacedByStaff ? (orderRequest.StaffId ?? "") : (orderRequest.CustomerId ?? ""),
                     Status = "New",

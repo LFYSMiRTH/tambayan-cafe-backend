@@ -46,6 +46,15 @@ namespace TambayanCafeAPI.Models
         [BsonElement("address")]
         public string? Address { get; set; }
 
+        [BsonElement("street")]
+        public string? Street { get; set; }
+
+        [BsonElement("city")]
+        public string? City { get; set; }
+
+        [BsonElement("province")]
+        public string? Province { get; set; }
+
         [BsonElement("birthday")]
         public DateTime? Birthday { get; set; }
 
