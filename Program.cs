@@ -79,6 +79,7 @@ builder.Services.AddScoped<IMenuItemService, ProductService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IDeliveryFeeService, DeliveryFeeService>();
+builder.Services.AddScoped<DatabaseSeeder>();
 
 builder.Services.AddSingleton<IReportService>(sp =>
 {
@@ -130,6 +131,12 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
+    await seeder.SeedAsync();
+}
 
 app.Use((context, next) =>
 {
