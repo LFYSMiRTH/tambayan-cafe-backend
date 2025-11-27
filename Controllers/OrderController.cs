@@ -146,7 +146,11 @@ namespace TambayanCafeSystem.Controllers
                     UserId = orderRequest.PlacedByStaff ? (orderRequest.StaffId ?? "") : (orderRequest.CustomerId ?? ""),
                     Status = "New",
                     CreatedAt = DateTime.UtcNow,
-                    OrderNumber = GenerateOrderNumber()
+                    OrderNumber = GenerateOrderNumber(),
+
+                    PaymentMethod = string.IsNullOrWhiteSpace(orderRequest.PaymentMethod)
+                        ? "Cash"
+                        : orderRequest.PaymentMethod
                 };
 
                 var createdOrder = await _orderService.CreateOrderAsyncFromModel(order);

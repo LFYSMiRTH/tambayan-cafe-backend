@@ -35,7 +35,7 @@ namespace TambayanCafeAPI.Models
         [BsonElement("isCompleted")]
         public bool IsCompleted { get; set; } = false;
 
-        [BsonElement("placedByStaff")] 
+        [BsonElement("placedByStaff")]
         public bool PlacedByStaff { get; set; } = false;
 
         [BsonElement("createdAt")]
@@ -46,5 +46,8 @@ namespace TambayanCafeAPI.Models
 
         [BsonElement("status")]
         public string Status { get; set; } = "New";
+
+        [BsonElement("paymentMethod")]
+        public string PaymentMethod { get; set; } = "Cash";
     }
 }
