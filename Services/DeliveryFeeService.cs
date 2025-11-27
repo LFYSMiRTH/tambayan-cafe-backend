@@ -29,7 +29,7 @@ namespace TambayanCafeAPI.Services
                 }
             }
 
-            return 80.00m; // Default out-of-coverage fee
+            return 400.00m; // Default out-of-coverage fee
         }
     }
 }

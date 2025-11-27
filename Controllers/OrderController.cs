@@ -185,7 +185,7 @@ namespace TambayanCafeSystem.Controllers
         public async Task<IActionResult> GetDeliveryFee([FromBody] DeliveryFeeRequestDto request)
         {
             if (string.IsNullOrWhiteSpace(request?.Address))
-                return Ok(new { fee = 80m });
+                return Ok(new { fee = 400m });
 
             var fee = await _deliveryFeeService.CalculateDeliveryFeeAsync(request.Address);
             return Ok(new { fee });
