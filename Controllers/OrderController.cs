@@ -214,6 +214,31 @@ namespace TambayanCafeSystem.Controllers
                 return StatusCode(500, new { message = "An error occurred while retrieving orders." });
             }
         }
+
+        [HttpGet("orders/{id}")]
+        public async Task<IActionResult> GetOrderById(string id)
+        {
+            try
+            {
+                if (!ObjectId.TryParse(id, out _))
+                {
+                    return BadRequest("Invalid order ID format.");
+                }
+
+                var order = await _orderService.GetOrderByIdAsync(id);
+                if (order == null)
+                {
+                    return NotFound($"Order with ID {id} not found.");
+                }
+
+                return Ok(order);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving order with ID {OrderId}", id);
+                return StatusCode(500, new { message = "An error occurred while retrieving the order." });
+            }
+        }
     }
 
     public class UpdateOrderStatusDto
