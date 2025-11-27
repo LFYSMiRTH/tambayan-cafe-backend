@@ -41,6 +41,9 @@ namespace TambayanCafeAPI.Models
         [BsonElement("createdAt")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+        [BsonElement("updatedAt")]
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
         [BsonElement("orderNumber")]
         public string OrderNumber { get; set; } = string.Empty;
 
@@ -55,5 +58,6 @@ namespace TambayanCafeAPI.Models
 
         [BsonElement("deliveryAddress")]
         public string? DeliveryAddress { get; set; }
+
     }
 }

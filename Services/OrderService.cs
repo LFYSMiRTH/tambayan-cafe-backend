@@ -511,10 +511,14 @@ namespace TambayanCafeAPI.Services
         public async Task<Order> UpdateOrderStatusAsync(string orderId, string newStatus)
         {
             var filter = Builders<Order>.Filter.Eq(o => o.Id, orderId);
-            var isCompleted = false;
+
+            var isCompleted = (newStatus == "Served" || newStatus == "Completed");
+
             var update = Builders<Order>.Update
                 .Set(o => o.Status, newStatus)
-                .Set(o => o.IsCompleted, isCompleted);
+                .Set(o => o.IsCompleted, isCompleted)
+                .Set(o => o.UpdatedAt, DateTime.UtcNow);
+
             var result = await _orders.UpdateOneAsync(filter, update);
 
             if (result.MatchedCount == 0)
