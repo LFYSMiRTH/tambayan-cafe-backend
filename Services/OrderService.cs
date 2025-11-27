@@ -187,9 +187,14 @@ namespace TambayanCafeAPI.Services
                 }
             }
 
-            var calculatedTotal = order.Items.Sum(item => item.Price * item.Quantity);
+            var subtotal = order.Items.Sum(item => item.Price * item.Quantity);
+            var calculatedTotal = subtotal + order.DeliveryFee;
+
             if (Math.Abs(calculatedTotal - order.TotalAmount) > 0.01m)
             {
+                _logger.LogWarning(
+                    "Total mismatch - Subtotal: {Subtotal}, Delivery: {Delivery}, Calculated: {Calculated}, Provided: {Provided}",
+                    subtotal, order.DeliveryFee, calculatedTotal, order.TotalAmount);
                 throw new ArgumentException("Calculated total does not match provided total.");
             }
 
