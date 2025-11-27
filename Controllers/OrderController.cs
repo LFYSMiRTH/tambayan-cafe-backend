@@ -86,18 +86,15 @@ namespace TambayanCafeSystem.Controllers
                     }
                 }
 
-                // ====== DELIVERY FEE CALCULATION ======
                 decimal deliveryFee = 0.0m;
                 string deliveryAddress = string.Empty;
 
-                // Only calculate delivery fee if it's NOT a walk-in order
                 bool isWalkIn = string.IsNullOrWhiteSpace(orderRequest.CustomerId) || orderRequest.CustomerId == "000000000000000000000000";
                 if (!isWalkIn && !string.IsNullOrWhiteSpace(orderRequest.DeliveryAddress))
                 {
                     deliveryAddress = orderRequest.DeliveryAddress.Trim();
                     deliveryFee = await _deliveryFeeService.CalculateDeliveryFeeAsync(deliveryAddress);
                 }
-                // ======================================
 
                 string customerName = "Walk-in Customer";
                 string customerId = orderRequest.CustomerId ?? "";
@@ -158,7 +155,7 @@ namespace TambayanCafeSystem.Controllers
                         Mood = item.Mood,
                         Sugar = item.Sugar
                     }).ToList(),
-                    TotalAmount = orderRequest.TotalAmount + deliveryFee, // Include delivery fee
+                    TotalAmount = orderRequest.TotalAmount + deliveryFee,
                     PlacedByStaff = orderRequest.PlacedByStaff,
                     UserId = orderRequest.PlacedByStaff ? (orderRequest.StaffId ?? "") : (orderRequest.CustomerId ?? ""),
                     Status = "New",

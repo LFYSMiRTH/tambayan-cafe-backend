@@ -65,17 +65,12 @@ namespace TambayanCafeAPI.Controllers
                 return Conflict(new { error = "EmailExists", message = "Email already registered." });
             }
 
-            // ✅ HASH PASSWORD BEFORE SAVING
             user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
             user.Id = null;
             user.Role = "customer";
             var createdUser = _userService.Create(user);
             return Ok(new { message = "User created successfully", user = createdUser });
         }
-
-        // ❌ REMOVE THIS LOGIN METHOD - USE AuthController INSTEAD
-        // [HttpPost("login")] 
-        // ... (delete entire method)
 
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] JsonElement request)
@@ -201,7 +196,6 @@ namespace TambayanCafeAPI.Controllers
                 return BadRequest(new { error = "InvalidCode", message = "Invalid or expired reset code." });
             }
 
-            // ✅ HASH NEW PASSWORD
             bool success = _userService.ResetPassword(email, BCrypt.Net.BCrypt.HashPassword(newPassword));
             if (!success)
             {
@@ -278,13 +272,13 @@ namespace TambayanCafeAPI.Controllers
 
                 var username = GenerateUsername(fullName);
                 var plainPassword = GenerateStrongPassword();
-                var hashedPassword = BCrypt.Net.BCrypt.HashPassword(plainPassword); // ✅ HASH
+                var hashedPassword = BCrypt.Net.BCrypt.HashPassword(plainPassword);
 
                 var newUser = new User
                 {
                     Username = username,
                     Email = email,
-                    Password = hashedPassword, // ✅ STORE HASH
+                    Password = hashedPassword,
                     Role = role,
                     Name = fullName
                 };
@@ -301,7 +295,6 @@ namespace TambayanCafeAPI.Controllers
                         var from = new EmailAddress("johntimothyyanto@gmail.com", "TBYN Café Admin");
                         var to = new EmailAddress(email);
                         var subject = "Welcome to TBYN Café – Your Account is Ready!";
-                        // 🔧 Fixed: removed trailing spaces in login URL
                         var htmlContent = $@"
                             <p>Hi <strong>{System.Net.WebUtility.HtmlEncode(fullName)}</strong>,</p>
                             <p>You’ve been added as a <strong>{System.Net.WebUtility.HtmlEncode(role)}</strong> to TBYN Café.</p>
@@ -334,7 +327,6 @@ namespace TambayanCafeAPI.Controllers
                     }
                     catch (Exception ex)
                     {
-                        // 🔥 Log full exception details
                         Console.WriteLine($"[SENDGRID ERROR] Type: {ex.GetType().FullName}");
                         Console.WriteLine($"[SENDGRID ERROR] Message: {ex.Message}");
                         Console.WriteLine($"[SENDGRID ERROR] StackTrace: {ex.StackTrace}");
@@ -364,7 +356,7 @@ namespace TambayanCafeAPI.Controllers
                 Console.WriteLine($"Exception Type: {ex.GetType().Name}");
                 Console.WriteLine($"Message: {ex.Message}");
                 Console.WriteLine($"StackTrace: {ex.StackTrace}");
-                return StatusCode(500, new { error = "Failed to create user", details = ex.Message });  
+                return StatusCode(500, new { error = "Failed to create user", details = ex.Message });
             }
         }
 
@@ -384,6 +376,9 @@ namespace TambayanCafeAPI.Controllers
                 email = user.Email,
                 phoneNumber = user.PhoneNumber,
                 address = user.Address,
+                street = user.Street,
+                city = user.City,
+                province = user.Province,
                 birthday = user.Birthday,
                 gender = user.Gender
             });
@@ -399,6 +394,9 @@ namespace TambayanCafeAPI.Controllers
             var email = request.GetProperty("email").GetString();
             var phoneNumber = request.GetProperty("phoneNumber").GetString();
             var address = request.GetProperty("address").GetString();
+            var street = request.TryGetProperty("street", out var streetEl) ? streetEl.GetString() : null;
+            var city = request.TryGetProperty("city", out var cityEl) ? cityEl.GetString() : null;
+            var province = request.TryGetProperty("province", out var provinceEl) ? provinceEl.GetString() : null;
             var birthday = request.GetProperty("birthday").GetRawText() == "null" ? (DateTime?)null : DateTime.Parse(request.GetProperty("birthday").GetString());
             var gender = request.GetProperty("gender").GetString();
 
@@ -409,6 +407,9 @@ namespace TambayanCafeAPI.Controllers
                 Email = email,
                 PhoneNumber = phoneNumber,
                 Address = address,
+                Street = street,
+                City = city,
+                Province = province,
                 Birthday = birthday,
                 Gender = gender
             };
