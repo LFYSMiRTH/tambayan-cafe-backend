@@ -198,9 +198,12 @@ namespace TambayanCafeAPI.Controllers
             };
         }
 
-        // ✅ Helper: Enrich many products — with .Cast<object>() to fix List<anonymous> → List<object>
         private async Task<List<object>> EnrichProducts(List<Product> products)
         {
+            var inventoryItems = await _inventoryItems.Find(_ => true).ToListAsync();
+            var nameToStock = inventoryItems
+                .ToDictionary(i => i.Name.ToLower(), i => i.CurrentStock);
+
             var allIds = products
                 .SelectMany(p => p.Ingredients)
                 .Where(i => !string.IsNullOrEmpty(i.InventoryItemId))
@@ -208,18 +211,18 @@ namespace TambayanCafeAPI.Controllers
                 .Distinct()
                 .ToList();
 
-            var inventoryItems = allIds.Any()
+            var ingredientItems = allIds.Any()
                 ? await _inventoryItems.Find(i => allIds.Contains(i.Id)).ToListAsync()
                 : new List<InventoryItem>();
 
-            var nameMap = inventoryItems.ToDictionary(i => i.Id, i => i.Name);
+            var nameMap = ingredientItems.ToDictionary(i => i.Id, i => i.Name);
 
             return products.Select(p => new
             {
                 p.Id,
                 p.Name,
                 p.Price,
-                p.StockQuantity,
+                StockQuantity = nameToStock.GetValueOrDefault(p.Name.ToLower(), p.StockQuantity),
                 p.Category,
                 p.IsAvailable,
                 p.ImageUrl,
