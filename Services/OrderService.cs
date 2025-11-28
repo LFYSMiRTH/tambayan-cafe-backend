@@ -453,15 +453,23 @@ namespace TambayanCafeAPI.Services
             var filterPending = Builders<Order>.Filter.In(o => o.Status, new[] { "New", "Preparing", "Pending" });
 
             var totalOrdersToday = await _orders.CountDocumentsAsync(filterToday);
-            var totalSalesToday = await _orders
+
+            var totalSalesTodayResult = await _orders
                 .Aggregate()
                 .Match(filterTodayCompleted)
-                .Group(o => 1, g => g.Sum(o => o.TotalAmount))
+                .Group(o => 1, g => g.Sum(o => (decimal?)o.TotalAmount)) // ✅ Cast to decimal?
                 .FirstOrDefaultAsync();
+
+            var totalSalesToday = totalSalesTodayResult ?? 0m;
             var pendingOrders = await _orders.CountDocumentsAsync(filterPending);
 
-            var lowStockThreshold = 5;
-            var lowStockAlerts = 0;
+            var allInventory = await _inventoryService.GetAllInventoryItemsAsync();
+            var lowStockAlerts = allInventory
+                .Where(item =>
+                    !string.IsNullOrEmpty(item.ProductId) &&
+                    item.CurrentStock > 0 &&
+                    item.CurrentStock <= 5)
+                .Count();
 
             return new
             {
