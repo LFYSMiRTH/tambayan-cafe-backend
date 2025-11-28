@@ -8,7 +8,7 @@ namespace TambayanCafeAPI.Models
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         public string Id { get; set; } = string.Empty;
-
+        public string ProductId { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string Category { get; set; } = "General";
         public int CurrentStock { get; set; }

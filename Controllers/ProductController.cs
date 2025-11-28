@@ -201,8 +201,10 @@ namespace TambayanCafeAPI.Controllers
         private async Task<List<object>> EnrichProducts(List<Product> products)
         {
             var inventoryItems = await _inventoryItems.Find(_ => true).ToListAsync();
-            var nameToStock = inventoryItems
-                .ToDictionary(i => i.Name.ToLower(), i => i.CurrentStock);
+
+            var stockMap = inventoryItems
+                .Where(i => !string.IsNullOrEmpty(i.ProductId))
+                .ToDictionary(i => i.ProductId, i => i.CurrentStock);
 
             var allIds = products
                 .SelectMany(p => p.Ingredients)
@@ -222,7 +224,7 @@ namespace TambayanCafeAPI.Controllers
                 p.Id,
                 p.Name,
                 p.Price,
-                StockQuantity = nameToStock.GetValueOrDefault(p.Name.ToLower(), p.StockQuantity),
+                StockQuantity = stockMap.GetValueOrDefault(p.Id, p.StockQuantity),
                 p.Category,
                 p.IsAvailable,
                 p.ImageUrl,
