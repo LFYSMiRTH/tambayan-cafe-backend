@@ -65,7 +65,8 @@ namespace TambayanCafeAPI.Services
                         Type = "warning",
                         Category = "stock",
                         RelatedId = item.Id,
-                        CreatedAt = DateTime.UtcNow
+                        CreatedAt = DateTime.UtcNow,
+                        TargetRole = "admin"
                     };
 
                     await _notificationService.CreateAsync(notification);
