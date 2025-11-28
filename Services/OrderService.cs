@@ -457,19 +457,28 @@ namespace TambayanCafeAPI.Services
             var totalSalesTodayResult = await _orders
                 .Aggregate()
                 .Match(filterTodayCompleted)
-                .Group(o => 1, g => g.Sum(o => (decimal?)o.TotalAmount)) // ✅ Cast to decimal?
+                .Group(o => 1, g => g.Sum(o => (decimal?)o.TotalAmount))
                 .FirstOrDefaultAsync();
 
             var totalSalesToday = totalSalesTodayResult ?? 0m;
             var pendingOrders = await _orders.CountDocumentsAsync(filterPending);
 
+            // ✅ Count low stock from BOTH Product.stockQuantity AND InventoryItem.CurrentStock
+            var allProducts = await _productService.GetAllAsync(); // Get all products
             var allInventory = await _inventoryService.GetAllInventoryItemsAsync();
-            var lowStockAlerts = allInventory
+
+            var lowStockFromProducts = allProducts
+                .Where(p => p.StockQuantity > 0 && p.StockQuantity <= 5)
+                .Count();
+
+            var lowStockFromInventory = allInventory
                 .Where(item =>
                     !string.IsNullOrEmpty(item.ProductId) &&
                     item.CurrentStock > 0 &&
                     item.CurrentStock <= 5)
                 .Count();
+
+            var lowStockAlerts = lowStockFromProducts + lowStockFromInventory;
 
             return new
             {
