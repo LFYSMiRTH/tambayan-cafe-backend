@@ -66,7 +66,7 @@ namespace TambayanCafeAPI.Services
         {
             var filter = Builders<Notification>.Filter.And(
                 Builders<Notification>.Filter.Eq(n => n.CustomerId, customerId),
-                Builders<Notification>.Filter.Ne(n => n.TargetRole, "staff") // Exclude staff-only notifications
+                Builders<Notification>.Filter.Ne(n => n.TargetRole, "admin") // Exclude staff-only notifications
             );
             var sort = Builders<Notification>.Sort.Descending(n => n.CreatedAt);
             return await _notifications.Find(filter).Sort(sort).Limit(limit).ToListAsync();
